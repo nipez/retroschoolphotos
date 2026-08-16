@@ -1,0 +1,16 @@
+{
+  "name": "retroschoolphotos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Retro School Photos static site + internal analytics (Cloudflare Pages Functions + D1)",
+  "scripts": {
+    "dev": "wrangler pages dev . --d1 DB=retro_analytics --port 8788",
+    "serve": "wrangler pages dev . --d1 DB=retro_analytics --port 8788",
+    "seed": "node scripts/seed.mjs",
+    "db:init": "wrangler d1 execute retro_analytics --local --file=./schema.sql",
+    "db:init:remote": "wrangler d1 execute retro_analytics --remote --file=./schema.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^4.123.0"
+  }
+}
