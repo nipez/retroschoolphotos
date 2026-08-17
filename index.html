@@ -3,14 +3,84 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Retro School Photos — Picture Day Time Machine</title>
-<meta name="description" content="Turn any photo into a nostalgic school day classic. Free, instant, and private — runs entirely in your browser.">
+<title>Retro School Photos — Free 80s &amp; 90s Picture Day Generator</title>
+<meta name="description" content="Turn any photo into a nostalgic 80s &amp; 90s school picture-day classic — laser backgrounds, class photos, pet portraits &amp; yearbook styles. Free, instant, and private; runs entirely in your browser.">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="theme-color" content="#0d0518">
 <link rel="canonical" href="https://retroschoolphotos.com">
-<meta property="og:title" content="Retro School Photos — Picture Day Time Machine">
-<meta property="og:description" content="Turn any photo into a nostalgic school day classic.">
+
+<!-- Icons -->
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="/icon.png" sizes="512x512" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+<!-- Open Graph -->
+<meta property="og:site_name" content="Retro School Photos">
+<meta property="og:title" content="Retro School Photos — Free 80s &amp; 90s Picture Day Generator">
+<meta property="og:description" content="Turn any photo into a nostalgic school picture-day classic — laser backgrounds, class photos, pet portraits &amp; yearbook styles. Free and private, right in your browser.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://retroschoolphotos.com">
+<meta property="og:image" content="https://retroschoolphotos.com/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Retro School Photos — Picture Day Time Machine">
+<meta property="og:locale" content="en_US">
+
+<!-- Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Retro School Photos — Free 80s &amp; 90s Picture Day Generator">
+<meta name="twitter:description" content="Turn any photo into a nostalgic school picture-day classic. Free, instant, and private — right in your browser.">
+<meta name="twitter:image" content="https://retroschoolphotos.com/og.jpg">
+
+<!-- Performance: warm up font + CDN origins -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bungee+Shade&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+
+<!-- Structured data -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Retro School Photos",
+  "url": "https://retroschoolphotos.com",
+  "description": "Turn any photo into a nostalgic 80s and 90s school picture-day classic with laser backgrounds, class photos, pet portraits and yearbook styles. Free and private, running entirely in your browser.",
+  "image": "https://retroschoolphotos.com/og.jpg",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Any (web browser)",
+  "browserRequirements": "Requires JavaScript",
+  "isAccessibleForFree": true,
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "How to make a retro school photo",
+  "description": "Create a nostalgic 80s or 90s picture-day photo in four steps.",
+  "step": [
+    { "@type": "HowToStep", "name": "Upload a photo", "text": "Upload any portrait photo. It stays in your browser and is never sent to a server." },
+    { "@type": "HowToStep", "name": "Choose your era", "text": "Pick an 80s or 90s style, like the classic laser background." },
+    { "@type": "HowToStep", "name": "Generate", "text": "Generate your retro school picture-day photo instantly." },
+    { "@type": "HowToStep", "name": "Download or share", "text": "Download the finished image or share it to social media." }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    { "@type": "Question", "name": "Is Retro School Photos free?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. Retro School Photos is completely free to use, with no sign-up required." } },
+    { "@type": "Question", "name": "Are my photos uploaded to a server?", "acceptedAnswer": { "@type": "Answer", "text": "No. All processing happens locally in your browser using on-device models, so your photos never leave your device." } },
+    { "@type": "Question", "name": "What styles or eras can I make?", "acceptedAnswer": { "@type": "Answer", "text": "You can create solo glamour shots with retro laser backgrounds, class photos, pet portraits, and yearbook superlatives in 80s and 90s styles." } },
+    { "@type": "Question", "name": "Do I need to install anything?", "acceptedAnswer": { "@type": "Answer", "text": "No. It runs entirely in your web browser on desktop and mobile, with nothing to install." } },
+    { "@type": "Question", "name": "Can I make an animated GIF?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. You can generate an animated laser GIF of your retro photo and download it." } }
+  ]
+}
+</script>
 <style>
   :root {
     --neon-pink: #ff2d95;
@@ -725,6 +795,37 @@
       </div>
     </div>
   </div><!-- end super-mode -->
+
+  <section class="seo-content" aria-label="About Retro School Photos" style="max-width:760px;margin:44px auto 0;padding:0 6px;">
+    <h2 style="font-family:'Press Start 2P',monospace;font-size:0.72rem;line-height:1.6;color:#00f0ff;text-align:center;letter-spacing:1px;margin-bottom:16px;">The free retro school photo generator</h2>
+    <p style="font-family:'VT323',monospace;font-size:1.2rem;color:rgba(255,255,255,0.72);line-height:1.55;text-align:center;">
+      Retro School Photos turns any picture into a nostalgic <strong style="color:#ff2d95;">80s and 90s picture-day classic</strong> — complete with the iconic laser backgrounds, soft-focus glamour-shot glow, and yearbook styling. Make a solo portrait, build a class photo, create a pet picture day, or hand out yearbook superlatives. It is 100% free, instant, and private: every photo is processed right in your browser and is never uploaded.
+    </p>
+
+    <h2 style="font-family:'Press Start 2P',monospace;font-size:0.72rem;color:#ff2d95;text-align:center;letter-spacing:1px;margin:34px 0 16px;">Frequently asked questions</h2>
+    <div class="faq">
+      <details style="background:rgba(26,10,46,0.7);border:1px solid rgba(176,38,255,0.3);border-radius:8px;padding:14px 18px;margin-bottom:10px;">
+        <summary style="font-family:'VT323',monospace;font-size:1.25rem;color:#00f0ff;cursor:pointer;">Is Retro School Photos free?</summary>
+        <p style="font-family:'VT323',monospace;font-size:1.15rem;color:rgba(255,255,255,0.75);line-height:1.55;margin-top:8px;">Yes. Retro School Photos is completely free to use, with no sign-up required.</p>
+      </details>
+      <details style="background:rgba(26,10,46,0.7);border:1px solid rgba(176,38,255,0.3);border-radius:8px;padding:14px 18px;margin-bottom:10px;">
+        <summary style="font-family:'VT323',monospace;font-size:1.25rem;color:#00f0ff;cursor:pointer;">Are my photos uploaded to a server?</summary>
+        <p style="font-family:'VT323',monospace;font-size:1.15rem;color:rgba(255,255,255,0.75);line-height:1.55;margin-top:8px;">No. All processing happens locally in your browser using on-device models, so your photos never leave your device.</p>
+      </details>
+      <details style="background:rgba(26,10,46,0.7);border:1px solid rgba(176,38,255,0.3);border-radius:8px;padding:14px 18px;margin-bottom:10px;">
+        <summary style="font-family:'VT323',monospace;font-size:1.25rem;color:#00f0ff;cursor:pointer;">What styles or eras can I make?</summary>
+        <p style="font-family:'VT323',monospace;font-size:1.15rem;color:rgba(255,255,255,0.75);line-height:1.55;margin-top:8px;">You can create solo glamour shots with retro laser backgrounds, class photos, pet portraits, and yearbook superlatives in 80s and 90s styles.</p>
+      </details>
+      <details style="background:rgba(26,10,46,0.7);border:1px solid rgba(176,38,255,0.3);border-radius:8px;padding:14px 18px;margin-bottom:10px;">
+        <summary style="font-family:'VT323',monospace;font-size:1.25rem;color:#00f0ff;cursor:pointer;">Do I need to install anything?</summary>
+        <p style="font-family:'VT323',monospace;font-size:1.15rem;color:rgba(255,255,255,0.75);line-height:1.55;margin-top:8px;">No. It runs entirely in your web browser on desktop and mobile, with nothing to install.</p>
+      </details>
+      <details style="background:rgba(26,10,46,0.7);border:1px solid rgba(176,38,255,0.3);border-radius:8px;padding:14px 18px;margin-bottom:10px;">
+        <summary style="font-family:'VT323',monospace;font-size:1.25rem;color:#00f0ff;cursor:pointer;">Can I make an animated GIF?</summary>
+        <p style="font-family:'VT323',monospace;font-size:1.15rem;color:rgba(255,255,255,0.75);line-height:1.55;margin-top:8px;">Yes. You can generate an animated laser GIF of your retro photo and download it.</p>
+      </details>
+    </div>
+  </section>
 
   <footer>
     Powered by <a href="https://solutionstud.io/" target="_blank" style="color:rgba(255,255,255,0.45);text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.2);">Solution Studio</a><br>
@@ -1798,6 +1899,9 @@ function randomizeBackground() {
     card.className = 'example-card';
     const img = document.createElement('img');
     img.src = ex.src;
+    img.alt = ex.label + ' retro school photo example';
+    img.loading = 'lazy';
+    img.decoding = 'async';
     img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
     const label = document.createElement('div');
     label.className = 'example-label';
