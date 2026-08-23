@@ -1,0 +1,17 @@
+name = "retroschoolphotos"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "."
+
+# Internal analytics store. For local dev the database_id is ignored and a
+# local SQLite file under .wrangler/state is used. For production, create the
+# database once with `wrangler d1 create retro_analytics` and paste the id here.
+[[d1_databases]]
+binding = "DB"
+database_name = "retro_analytics"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+# REPORTS_KEY gates the /reports dashboard and any timestamp backfill on
+# /api/track. Override in production via the Pages dashboard / `wrangler pages
+# secret put REPORTS_KEY`. The default below is only for local development.
+[vars]
+REPORTS_KEY = "retro-preview-stats"
