@@ -151,6 +151,24 @@
     cursor: pointer; transition: all 0.2s; text-transform: uppercase; text-decoration: none;
   }
   .download-btn:hover { background: #fff; box-shadow: 0 0 20px rgba(0,240,255,0.6); }
+  .download-btn:disabled { opacity: 0.55; cursor: wait; box-shadow: none; }
+  .export-size-row {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+    gap: 10px 14px; margin-top: 14px; font-family: 'VT323', monospace;
+  }
+  .export-size-label {
+    font-size: 1.15rem; color: rgba(255,255,255,0.55); letter-spacing: 1px;
+  }
+  .export-size-select {
+    font-family: 'VT323', monospace; font-size: 1.15rem;
+    color: #fff; background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(0,240,255,0.35); border-radius: 4px;
+    padding: 6px 10px; cursor: pointer;
+  }
+  .export-size-hint {
+    width: 100%; text-align: center; font-size: 1rem;
+    color: rgba(255,255,255,0.35); margin-top: -2px;
+  }
   .processing { display: none; text-align: center; padding: 30px; }
   .processing.visible { display: block; }
   .processing .spinner {
@@ -531,8 +549,17 @@
       <div class="output-canvas-wrap"><canvas id="output-canvas" width="800" height="1000"></canvas>
           <canvas id="eraser-overlay" style="display:none;" width="800" height="1000"></canvas>
           <div id="brush-cursor" style="display:none;"><div id="brush-cursor-dot"></div></div></div>
+      <div class="export-size-row" id="solo-export-size-row">
+        <span class="export-size-label">Download size</span>
+        <select id="solo-export-size" class="export-size-select" aria-label="Download size">
+          <option value="web" selected>Web — 800×1000</option>
+          <option value="print">8×10 Print — 2400×3000</option>
+          <option value="stories">Stories — 1080×1920</option>
+        </select>
+        <div class="export-size-hint">Web is quick. Print &amp; Stories re-render sharp — not an upscale.</div>
+      </div>
       <div class="post-actions" id="post-actions">
-        <a class="download-btn" id="download-btn" download="retro_school_photo.jpg" href="#" onclick="event.preventDefault();mobileDownloadCanvas('output-canvas','retro_school_photo.jpg')">Download Photo</a>
+        <a class="download-btn" id="download-btn" download="retro_school_photo.jpg" href="#" onclick="event.preventDefault();downloadSoloPhoto()">Download Photo</a>
         <button class="download-btn" id="gif-btn" style="display:none;background:var(--neon-pink);" onclick="generateGif()">🔄 Regenerate Animated GIF</button>
       </div>
       <div class="eraser-toolbar" id="eraser-toolbar" style="display:none;">
@@ -659,8 +686,17 @@
       <div class="step">
         <div class="step-label" data-num="★">Pet Glamour Shot</div>
         <div class="output-canvas-wrap"><canvas id="pet-canvas" width="800" height="1000"></canvas></div>
+        <div class="export-size-row" id="pet-export-size-row">
+          <span class="export-size-label">Download size</span>
+          <select id="pet-export-size" class="export-size-select" aria-label="Pet download size">
+            <option value="web" selected>Web — 800×1000</option>
+            <option value="print">8×10 Print — 2400×3000</option>
+            <option value="stories">Stories — 1080×1920</option>
+          </select>
+          <div class="export-size-hint">Web is quick. Print &amp; Stories re-render sharp — not an upscale.</div>
+        </div>
         <div class="post-actions">
-          <a class="download-btn" id="pet-download" download="pet_portrait.jpg" href="#" onclick="event.preventDefault();mobileDownloadCanvas('pet-canvas','pet_portrait.jpg')">Download Pet Portrait</a>
+          <a class="download-btn" id="pet-download" download="pet_portrait.jpg" href="#" onclick="event.preventDefault();downloadPetPhoto()">Download Pet Portrait</a>
         </div>
         <div class="share-buttons" style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
           <button class="share-btn share-native" onclick="sharePetPhoto()">📤 Share</button>
@@ -2465,10 +2501,15 @@ document.getElementById('zoom-slider').addEventListener('input', (e) => {
 });
 
 // ====== MAIN RENDER ======
-function doGenerate() {
-  const canvas = document.getElementById('output-canvas');
+function doGenerate(opts) {
+  opts = opts || {};
+  const canvas = opts.canvas || document.getElementById('output-canvas');
   const ctx = canvas.getContext('2d');
-  const W = 800, H = 1000;
+  const W = opts.W || 800, H = opts.H || 1000;
+  const skipSideEffects = !!opts.skipSideEffects;
+  // Keep expensive mask morphology near preview cost at large export sizes
+  // (backdrop + portrait still render at full W×H — not an upscale).
+  const edgePx = (n) => Math.max(1, Math.round(n * Math.min(1, 800 / W)));
   canvas.width = W; canvas.height = H;
 
   const img = uploadedImage;
@@ -2536,8 +2577,8 @@ function doGenerate() {
       else mask[i] = 1;
     }
     // Erode mask heavily to cut away remaining fringe
-    contractMask(mask, W, H, 10);
-    smoothMask(mask, W, H, 4);
+    contractMask(mask, W, H, edgePx(10));
+    smoothMask(mask, W, H, W > 1200 ? 2 : 4);
 
     // PASS 2: Tight-band decontamination on eroded edges
     for(let i=0;i<mask.length;i++){
@@ -2552,7 +2593,7 @@ function doGenerate() {
   }
 
   for(let i=0;i<mask.length;i++){if(mask[i]>0.35)mask[i]=Math.min(1,mask[i]*1.4+0.2);else if(mask[i]<0.15)mask[i]=0;}
-  smoothMask(mask, W, H, 2);
+  smoothMask(mask, W, H, W > 1200 ? 1 : 2);
 
   // For modern/special decades: tighten edges before era processing
   if (decade === '00s' || decade === '10s' || decade === 'special') {
@@ -2567,17 +2608,20 @@ function doGenerate() {
   // ====== ERA-APPROPRIATE MASK SOFTENING ======
 
   if (decade === '70s') {
-    for (let p = 0; p < 6; p++) smoothMask(mask, W, H, 5);
+    const softPasses = W > 1200 ? 2 : 6;
+    for (let p = 0; p < softPasses; p++) smoothMask(mask, W, H, W > 1200 ? 2 : 5);
     for (let i = 0; i < mask.length; i++) {
       if (mask[i] > 0.95) mask[i] = 0.95 + (mask[i] - 0.95) * 0.5;
     }
   } else if (decade === '90s') {
-    for (let p = 0; p < 3; p++) smoothMask(mask, W, H, 3);
+    const softPasses = W > 1200 ? 1 : 3;
+    for (let p = 0; p < softPasses; p++) smoothMask(mask, W, H, W > 1200 ? 1 : 3);
   } else if (decade === '80s') {
-    for (let p = 0; p < 3; p++) smoothMask(mask, W, H, 3);
+    const softPasses = W > 1200 ? 1 : 3;
+    for (let p = 0; p < softPasses; p++) smoothMask(mask, W, H, W > 1200 ? 1 : 3);
   } else {
     // 00s, 10s, special: tight edges — erode then lightly smooth
-    contractMask(mask, W, H, 3);
+    contractMask(mask, W, H, edgePx(3));
     smoothMask(mask, W, H, 1);
   }
 
@@ -2585,11 +2629,11 @@ function doGenerate() {
   // Apply edge-aware feathering for natural hair/shoulder blending
   // Retro decades get softer feathering, modern decades get tighter
   if (decade === '70s') {
-    featherMaskEdges(mask, W, H, 5, 0.03, 0.97);
+    featherMaskEdges(mask, W, H, edgePx(5), 0.03, 0.97);
   } else if (decade === '80s' || decade === '90s') {
-    featherMaskEdges(mask, W, H, 4, 0.04, 0.96);
+    featherMaskEdges(mask, W, H, edgePx(4), 0.04, 0.96);
   } else {
-    featherMaskEdges(mask, W, H, 3, 0.05, 0.95);
+    featherMaskEdges(mask, W, H, edgePx(3), 0.05, 0.95);
   }
 
   // This is the key — make the person look like they were photographed
@@ -2694,7 +2738,7 @@ function doGenerate() {
       }
     }
     // Propagate distances inward (simple BFS-like spread, a few passes)
-    const maxSpread = 12;
+    const maxSpread = W > 1200 ? 4 : 12;
     for (let pass = 0; pass < maxSpread; pass++) {
       for(let y = 1; y < H-1; y++) {
         for(let x = 1; x < W-1; x++) {
@@ -2791,7 +2835,7 @@ function doGenerate() {
     }
     const hH = hBot - hTop, hW = hRight - hLeft;
 
-    if(hH > 30 && hW > 30) {
+    if(hH > Math.max(30, Math.round(H * 0.03)) && hW > Math.max(30, Math.round(W * 0.03))) {
       // Step 3: Crop face with generous padding — include neck and upper chest
       const padTop = hH * 0.3, padSide = hW * 0.4, padBot = hH * 0.8;
       const cTop = Math.max(0, hTop - padTop);
@@ -3062,20 +3106,160 @@ function doGenerate() {
 
 
   // Save render data for eraser tool
-  eraserBgData = lc.getContext('2d').getImageData(0, 0, W, H);
-  eraserFinalData = ctx.getImageData(0, 0, W, H);
-  eraserMask = mask.slice();
-  eraserW = W; eraserH = H;
+  if (!skipSideEffects) {
+    eraserBgData = lc.getContext('2d').getImageData(0, 0, W, H);
+    eraserFinalData = ctx.getImageData(0, 0, W, H);
+    eraserMask = mask.slice();
+    eraserW = W; eraserH = H;
 
-  // Set download link
-  document.getElementById('download-btn').href = canvas.toDataURL('image/jpeg', 0.92);
-  // Show GIF button only for 90s laser backgrounds
-  document.getElementById('gif-btn').style.display = BGS[selectedBg].decade === '90s' ? 'inline-block' : 'none';
-  incrementCounter();
+    // Set download link
+    document.getElementById('download-btn').href = canvas.toDataURL('image/jpeg', 0.92);
+    // Show GIF button only for 90s laser backgrounds
+    document.getElementById('gif-btn').style.display = BGS[selectedBg].decade === '90s' ? 'inline-block' : 'none';
+    incrementCounter();
+  }
+}
+
+// ====== EXPORT SIZES (print-ready re-render) ======
+const EXPORT_PRESETS = {
+  web:     { w: 800,  h: 1000, suffix: '',          label: 'Web' },
+  print:   { w: 2400, h: 3000, suffix: '_8x10',     label: '8×10 Print' },
+  stories: { w: 1080, h: 1920, suffix: '_stories',  label: 'Stories' }
+};
+
+function getExportPreset(selectId) {
+  const el = document.getElementById(selectId);
+  const key = (el && el.value) || 'web';
+  return EXPORT_PRESETS[key] || EXPORT_PRESETS.web;
+}
+
+function downloadCanvasElement(canvas, filename) {
+  if (!canvas) return;
+  const ext = filename.split('.').pop().toLowerCase();
+  const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+  const quality = ext === 'png' ? undefined : 0.92;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isIOS && navigator.share && navigator.canShare) {
+    canvas.toBlob(async (blob) => {
+      try {
+        const file = new File([blob], filename, {type: mime});
+        if (navigator.canShare({files: [file]})) {
+          await navigator.share({files: [file], title: 'Retro School Photo'});
+          return;
+        }
+      } catch(e) { if (e.name !== 'AbortError') console.log('Share failed, falling back to download', e); else return; }
+      mobileDownload(canvas.toDataURL(mime, quality), filename);
+    }, mime, quality);
+    return;
+  }
+  mobileDownload(canvas.toDataURL(mime, quality), filename);
+}
+
+async function downloadSoloPhoto() {
+  if (!uploadedImage) return;
+  const preset = getExportPreset('solo-export-size');
+  const btn = document.getElementById('download-btn');
+  const filename = 'retro_school_photo' + preset.suffix + '.jpg';
+
+  // Web: keep current on-screen canvas (includes any edge refine edits)
+  if (preset.w === 800 && preset.h === 1000) {
+    btn.download = filename;
+    mobileDownloadCanvas('output-canvas', filename);
+    return;
+  }
+
+  const prevLabel = btn.textContent;
+  btn.textContent = 'Rendering ' + preset.label + '…';
+  btn.style.pointerEvents = 'none';
+  await new Promise(r => setTimeout(r, 40));
+  try {
+    const off = document.createElement('canvas');
+    doGenerate({ W: preset.w, H: preset.h, canvas: off, skipSideEffects: true });
+    btn.download = filename;
+    downloadCanvasElement(off, filename);
+  } catch (err) {
+    console.error('Print export failed:', err);
+  }
+  btn.textContent = prevLabel;
+  btn.style.pointerEvents = '';
+}
+
+async function downloadPetPhoto() {
+  if (!petPhoto) return;
+  const preset = getExportPreset('pet-export-size');
+  const btn = document.getElementById('pet-download');
+  const filename = 'pet_portrait' + preset.suffix + '.jpg';
+
+  if (preset.w === 800 && preset.h === 1000) {
+    btn.download = filename;
+    mobileDownloadCanvas('pet-canvas', filename);
+    return;
+  }
+
+  const prevLabel = btn.textContent;
+  btn.textContent = 'Rendering ' + preset.label + '…';
+  btn.style.pointerEvents = 'none';
+  await new Promise(r => setTimeout(r, 40));
+  try {
+    const off = renderPetAtSize(preset.w, preset.h);
+    if (off) {
+      btn.download = filename;
+      downloadCanvasElement(off, filename);
+    }
+  } catch (err) {
+    console.error('Pet print export failed:', err);
+  }
+  btn.textContent = prevLabel;
+  btn.style.pointerEvents = '';
+}
+
+function renderPetAtSize(W, H) {
+  if (!petPhoto) return null;
+  const savedImage = uploadedImage;
+  const savedBg = selectedBg;
+  const savedMask = personMask;
+  const savedCrop = { ...cropState };
+  const savedPetMode = isPetMode;
+
+  uploadedImage = petPhoto;
+  selectedBg = selectedPetBg;
+  personMask = petPersonMask;
+  cropState = { offsetX: 0, offsetY: 0, zoom: 1 };
+  isPetMode = true;
+
+  const off = document.createElement('canvas');
+  try {
+    doGenerate({ W, H, canvas: off, skipSideEffects: true });
+  } finally {
+    isPetMode = savedPetMode;
+    uploadedImage = savedImage;
+    selectedBg = savedBg;
+    personMask = savedMask;
+    cropState = savedCrop;
+  }
+
+  const pctx = off.getContext('2d');
+  const petName = document.getElementById('pet-name').value.trim();
+  if (petName) {
+    pctx.save();
+    pctx.textAlign = 'center'; pctx.textBaseline = 'bottom';
+    pctx.shadowColor = 'rgba(0,0,0,0.7)'; pctx.shadowBlur = 4;
+    pctx.fillStyle = 'rgba(255,255,255,0.85)';
+    pctx.font = "italic " + Math.round(W * 0.045) + "px Georgia, serif";
+    pctx.fillText(petName, W / 2, H - W * 0.04);
+    pctx.restore();
+  }
+  pctx.save();
+  pctx.textAlign = 'right'; pctx.textBaseline = 'bottom';
+  pctx.fillStyle = 'rgba(255,255,255,0.25)';
+  pctx.font = Math.round(W * 0.018) + "px 'VT323', monospace";
+  pctx.fillText('retroschoolphotos.com', W - 12, H - 8);
+  pctx.restore();
+  return off;
 }
 
 // ====== DOWNLOAD ======
-// Photo download uses <a download> link set in doGenerate
+// Photo download uses downloadSoloPhoto / downloadPetPhoto (re-renders for print sizes)
 // GIF uses dynamic link below
 
 // ====== GIF GENERATION ======
@@ -3458,6 +3642,7 @@ let petPhoto = null;
 let petDecade = '90s';
 let selectedPetBg = 0;
 let isPetMode = false;
+let petPersonMask = null; // retained for print-size re-renders after generate
 
 function handlePetPhoto(e) {
   const file = e.target.files[0];
@@ -3559,6 +3744,16 @@ async function generatePetPhoto() {
     isPetMode = true;
     doGenerate();
     isPetMode = false;
+    // Clone mask so later solo segmentation can't overwrite pet export source
+    if (personMask) {
+      const mc = document.createElement('canvas');
+      mc.width = personMask.width || personMask.videoWidth || 256;
+      mc.height = personMask.height || personMask.videoHeight || 256;
+      mc.getContext('2d').drawImage(personMask, 0, 0);
+      petPersonMask = mc;
+    } else {
+      petPersonMask = null;
+    }
 
     // Copy result from output-canvas to pet-canvas
     const outputCanvas = document.getElementById('output-canvas');
@@ -3629,6 +3824,7 @@ function copyPetToClipboard() {
 
 function resetPetMode() {
   petPhoto = null;
+  petPersonMask = null;
   document.getElementById('pet-preview-img').style.display = 'none';
   document.getElementById('pet-upload-placeholder').style.display = '';
   document.getElementById('pet-change-btn').style.display = 'none';
