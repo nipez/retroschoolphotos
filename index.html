@@ -3171,7 +3171,8 @@ async function downloadSoloPhoto() {
   const prevLabel = btn.textContent;
   btn.textContent = 'Rendering ' + preset.label + '…';
   btn.style.pointerEvents = 'none';
-  await new Promise(r => setTimeout(r, 40));
+  // Let the label paint before the sync re-render blocks the main thread
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   try {
     const off = document.createElement('canvas');
     doGenerate({ W: preset.w, H: preset.h, canvas: off, skipSideEffects: true });
@@ -3199,7 +3200,7 @@ async function downloadPetPhoto() {
   const prevLabel = btn.textContent;
   btn.textContent = 'Rendering ' + preset.label + '…';
   btn.style.pointerEvents = 'none';
-  await new Promise(r => setTimeout(r, 40));
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   try {
     const off = renderPetAtSize(preset.w, preset.h);
     if (off) {
