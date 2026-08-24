@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Public Yearbook — Retro School Photos</title>
+<meta name="description" content="Photos people chose to share in the public Retro School Photos yearbook. Opt-in only.">
+<link rel="canonical" href="https://retroschoolphotos.com/yearbook">
+<meta property="og:title" content="Public Yearbook — Retro School Photos">
+<meta property="og:description" content="Opted-in retro school photos, newest first.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://retroschoolphotos.com/yearbook">
+<link href="https://fonts.googleapis.com/css2?family=Bungee+Shade&family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --neon-pink: #ff2d95;
+    --neon-cyan: #00f0ff;
+    --neon-purple: #b026ff;
+    --darker-bg: #0d0518;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'VT323', monospace;
+    background: var(--darker-bg);
+    color: #fff;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+    pointer-events: none; z-index: 9999;
+  }
+  .grid-bg {
+    position: fixed; inset: 0;
+    background:
+      linear-gradient(var(--darker-bg) 0%, transparent 30%, transparent 70%, var(--darker-bg) 100%),
+      linear-gradient(90deg, rgba(176,38,255,0.07) 1px, transparent 1px),
+      linear-gradient(rgba(176,38,255,0.07) 1px, transparent 1px);
+    background-size: 100% 100%, 40px 40px, 40px 40px;
+    z-index: 0;
+  }
+  .container { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 20px; }
+  header { text-align: center; padding: 36px 0 12px; }
+  h1 {
+    font-family: 'Bungee Shade', cursive;
+    font-size: clamp(1.8rem, 6vw, 3rem);
+    background: linear-gradient(180deg, var(--neon-pink), var(--neon-cyan));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 20px rgba(255,45,149,0.5));
+    line-height: 1.3;
+  }
+  .subtitle {
+    font-family: 'Press Start 2P', monospace;
+    font-size: clamp(0.45rem, 1.4vw, 0.65rem);
+    color: var(--neon-cyan); margin-top: 12px; letter-spacing: 2px; opacity: 0.85;
+  }
+  .lede {
+    font-size: 1.25rem;
+    color: rgba(255,255,255,0.55);
+    margin: 16px auto 0;
+    max-width: 36em;
+    line-height: 1.45;
+  }
+  .back-link {
+    display: inline-block;
+    margin-top: 22px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    color: var(--neon-pink);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255,45,149,0.4);
+    letter-spacing: 1px;
+  }
+  .back-link:hover { color: #fff; border-color: #fff; }
+  .status {
+    text-align: center;
+    margin: 28px 0 8px;
+    font-size: 1.3rem;
+    color: rgba(255,255,255,0.45);
+    min-height: 1.5em;
+  }
+  .status.error { color: #ff6b8a; }
+  .yearbook-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    padding: 12px 0 40px;
+  }
+  @media (min-width: 700px) {
+    .yearbook-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+  }
+  .yb-card {
+    background: rgba(26,10,46,0.85);
+    border: 1px solid rgba(176,38,255,0.35);
+    border-radius: 8px;
+    overflow: hidden;
+    animation: yb-in 0.45s ease both;
+  }
+  .yb-card:nth-child(2) { animation-delay: 0.04s; }
+  .yb-card:nth-child(3) { animation-delay: 0.08s; }
+  .yb-card:nth-child(4) { animation-delay: 0.12s; }
+  @keyframes yb-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+  .yb-card a {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+  }
+  .yb-card img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+    background: #1a0a2e;
+  }
+  .yb-meta {
+    padding: 10px 12px 12px;
+    font-size: 1.1rem;
+    color: rgba(255,255,255,0.7);
+  }
+  .yb-name {
+    color: var(--neon-cyan);
+    font-size: 1.2rem;
+  }
+  .yb-date {
+    color: rgba(255,255,255,0.35);
+    font-size: 1rem;
+    margin-top: 2px;
+  }
+  footer {
+    text-align: center;
+    padding: 28px 12px 48px;
+    font-size: 1.05rem;
+    color: rgba(255,255,255,0.35);
+    line-height: 1.6;
+  }
+  footer a { color: rgba(255,255,255,0.45); text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.2); }
+  footer a:hover { color: rgba(255,255,255,0.7); }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="container">
+  <header>
+    <h1>Public Yearbook</h1>
+    <p class="subtitle">OPTED-IN ONLY · NEWEST FIRST</p>
+    <p class="lede">These are retro results people chose to share. Original uploads never leave their device. Nothing appears here unless someone taps Add to the public yearbook after generate.</p>
+    <a class="back-link" href="/">← Make your own</a>
+  </header>
+
+  <p class="status" id="yb-status">Loading yearbook…</p>
+  <div class="yearbook-grid" id="yb-grid" aria-live="polite"></div>
+
+  <footer>
+    Powered by <a href="https://solutionstud.io/" target="_blank" rel="noopener">Solution Studio</a><br>
+    Photos stay on your device unless you add them to the public yearbook.<br>
+    <a href="/">Home</a>
+    &nbsp;·&nbsp;
+    <a href="/#privacy" onclick="sessionStorage.setItem('openLegal','privacy')">Privacy Policy</a>
+    &nbsp;·&nbsp;
+    <a href="/#terms" onclick="sessionStorage.setItem('openLegal','terms')">Terms of Use</a>
+  </footer>
+</div>
+<script>
+(async function loadYearbook() {
+  const status = document.getElementById('yb-status');
+  const grid = document.getElementById('yb-grid');
+  try {
+    const res = await fetch('/api/yearbook?limit=60', { credentials: 'omit' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || ('HTTP ' + res.status));
+    }
+    const data = await res.json();
+    const items = data.items || [];
+    if (!items.length) {
+      status.textContent = 'No shared photos yet. Generate one, then tap Add to the public yearbook.';
+      return;
+    }
+    status.textContent = items.length + ' shared photo' + (items.length === 1 ? '' : 's');
+    const frag = document.createDocumentFragment();
+    for (const item of items) {
+      const card = document.createElement('article');
+      card.className = 'yb-card';
+      const link = document.createElement('a');
+      link.href = item.url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      const img = document.createElement('img');
+      img.src = item.url;
+      img.alt = item.name ? (item.name + ' — retro school photo') : 'Shared retro school photo';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      link.appendChild(img);
+      const meta = document.createElement('div');
+      meta.className = 'yb-meta';
+      if (item.name) {
+        const n = document.createElement('div');
+        n.className = 'yb-name';
+        n.textContent = item.name;
+        meta.appendChild(n);
+      }
+      if (item.createdAt) {
+        const d = document.createElement('div');
+        d.className = 'yb-date';
+        try {
+          d.textContent = new Date(item.createdAt).toLocaleDateString(undefined, {
+            year: 'numeric', month: 'short', day: 'numeric'
+          });
+        } catch (e) {
+          d.textContent = item.createdAt.slice(0, 10);
+        }
+        meta.appendChild(d);
+      }
+      link.appendChild(meta);
+      card.appendChild(link);
+      frag.appendChild(card);
+    }
+    grid.appendChild(frag);
+  } catch (e) {
+    status.classList.add('error');
+    status.textContent = 'Could not load the yearbook. ' + (e.message || 'Try again later.');
+  }
+})();
+</script>
+</body>
+</html>

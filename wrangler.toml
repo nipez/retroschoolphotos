@@ -1,0 +1,23 @@
+# Cloudflare Pages project: retrophotosv1
+# Static assets at repo root; API under functions/
+
+name = "retrophotosv1"
+compatibility_date = "2026-08-24"
+pages_build_output_dir = "."
+
+# Yearbook storage (web-size JPEGs + short index JSON).
+# Namespace title in the dashboard: retro-yearbook
+# Binding name used in Functions: YEARBOOK
+[[kv_namespaces]]
+binding = "YEARBOOK"
+id = "9f761ebb0f7a464dbc09afb97011f2fe"
+
+# Preferred long-term store (not enabled on the account yet).
+# After enabling R2 in the Cloudflare Dashboard:
+#   1. Create bucket named: retro-yearbook
+#   2. Uncomment below and redeploy
+#   3. Functions will prefer R2 for image bytes when YEARBOOK_R2 is bound
+#
+# [[r2_buckets]]
+# binding = "YEARBOOK_R2"
+# bucket_name = "retro-yearbook"

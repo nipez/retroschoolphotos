@@ -152,6 +152,56 @@
   }
   .download-btn:hover { background: #fff; box-shadow: 0 0 20px rgba(0,240,255,0.6); }
   .download-btn:disabled { opacity: 0.55; cursor: wait; box-shadow: none; }
+  .yearbook-optin {
+    margin: 18px auto 0;
+    max-width: 420px;
+    padding: 14px 16px;
+    border: 1px dashed rgba(0,240,255,0.35);
+    border-radius: 8px;
+    background: rgba(0,240,255,0.05);
+    text-align: center;
+  }
+  .yearbook-optin-hint {
+    font-family: 'VT323', monospace;
+    font-size: 1.1rem;
+    color: rgba(255,255,255,0.55);
+    line-height: 1.35;
+    margin-bottom: 10px;
+  }
+  .yearbook-optin-btn {
+    display: inline-block;
+    padding: 10px 18px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 1px;
+    color: #fff;
+    background: transparent;
+    border: 1px solid var(--neon-cyan);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .yearbook-optin-btn:hover:not(:disabled) {
+    background: rgba(0,240,255,0.15);
+    box-shadow: 0 0 16px rgba(0,240,255,0.35);
+  }
+  .yearbook-optin-btn:disabled {
+    opacity: 0.7;
+    cursor: default;
+    border-color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.65);
+  }
+  .yearbook-optin-btn.added {
+    border-color: rgba(0,240,255,0.5);
+    color: var(--neon-cyan);
+  }
+  .yearbook-optin-status {
+    margin-top: 8px;
+    font-size: 1.05rem;
+    color: rgba(255,255,255,0.45);
+    min-height: 1.2em;
+  }
+  .yearbook-optin-status.error { color: #ff6b8a; }
   .export-size-row {
     display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
     gap: 10px 14px; margin-top: 14px; font-family: 'VT323', monospace;
@@ -562,6 +612,11 @@
         <a class="download-btn" id="download-btn" download="retro_school_photo.jpg" href="#" onclick="event.preventDefault();downloadSoloPhoto()">Download Photo</a>
         <button class="download-btn" id="gif-btn" style="display:none;background:var(--neon-pink);" onclick="generateGif()">🔄 Regenerate Animated GIF</button>
       </div>
+      <div class="yearbook-optin" id="solo-yearbook-optin" style="display:none;">
+        <p class="yearbook-optin-hint">This uploads the retro photo (not your original) so it can appear on the site.</p>
+        <button type="button" class="yearbook-optin-btn" id="solo-yearbook-btn" onclick="addToYearbook('solo')">Add to the public yearbook</button>
+        <div class="yearbook-optin-status" id="solo-yearbook-status"></div>
+      </div>
       <div class="eraser-toolbar" id="eraser-toolbar" style="display:none;">
         <div class="eraser-toolbar-row">
           <button class="eraser-mode-btn active" id="eraser-mode-erase" onclick="setEraserMode('erase')">&#x1f6ab; Erase</button>
@@ -698,6 +753,11 @@
         <div class="post-actions">
           <a class="download-btn" id="pet-download" download="pet_portrait.jpg" href="#" onclick="event.preventDefault();downloadPetPhoto()">Download Pet Portrait</a>
         </div>
+        <div class="yearbook-optin" id="pet-yearbook-optin" style="display:none;">
+          <p class="yearbook-optin-hint">This uploads the retro photo (not your original) so it can appear on the site.</p>
+          <button type="button" class="yearbook-optin-btn" id="pet-yearbook-btn" onclick="addToYearbook('pet')">Add to the public yearbook</button>
+          <div class="yearbook-optin-status" id="pet-yearbook-status"></div>
+        </div>
         <div class="share-buttons" style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
           <button class="share-btn share-native" onclick="sharePetPhoto()">📤 Share</button>
           <button class="share-btn share-copy" onclick="copyPetToClipboard()">📋 Copy Image</button>
@@ -764,8 +824,10 @@
 
   <footer>
     Powered by <a href="https://solutionstud.io/" target="_blank" style="color:rgba(255,255,255,0.45);text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.2);">Solution Studio</a><br>
-    Your photos never leave your device — we do not upload, retain, or store any images.<br>
+    Photos stay on your device unless you add them to the public yearbook.<br>
     <span style="margin-top:4px;display:inline-block;">
+      <a href="/yearbook" style="color:rgba(255,255,255,0.35);text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.15);">Yearbook</a>
+      &nbsp;·&nbsp;
       <a href="#" onclick="showModal('privacy');return false" style="color:rgba(255,255,255,0.35);text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.15);">Privacy Policy</a>
       &nbsp;·&nbsp;
       <a href="#" onclick="showModal('terms');return false" style="color:rgba(255,255,255,0.35);text-decoration:none;border-bottom:1px solid rgba(255,255,255,0.15);">Terms of Use</a>
@@ -784,37 +846,41 @@
   const LEGAL = {
     privacy: `
       <h2 style="font-family:'Press Start 2P',monospace;font-size:0.8rem;color:#ff2d95;margin-bottom:18px;">Privacy Policy</h2>
-      <p><strong style="color:#fff;">Last updated: February 2026</strong></p>
-      <p>Retro School Photos ("the App") is operated by Solution Studio. We take your privacy seriously — especially when it involves your photos.</p>
+      <p><strong style="color:#fff;">Last updated: August 2026</strong></p>
+      <p>Retro School Photos ("the App") is operated by Solution Studio. Your photos matter, so here is exactly what happens to them.</p>
       <p><strong style="color:#00f0ff;">The Short Version</strong></p>
-      <p>We do not collect, upload, store, or have access to any photos you use with this App. Period.</p>
+      <p>By default, photo generation runs entirely on your device. We do not upload, retain, or store your original photo, cutout mask, or raw file. The only exception is the optional public yearbook: if you tap Add to the public yearbook after generate, we store that retro result JPEG so it can appear on /yearbook.</p>
       <p><strong style="color:#00f0ff;">How the App Works</strong></p>
-      <p>All image processing happens entirely within your web browser using client-side technology. When you upload a photo, it is loaded into your browser's local memory only. It is never transmitted to our servers or any third-party server. The AI-powered person detection runs locally in your browser via MediaPipe. When you close or refresh the page, your photo data is gone.</p>
-      <p><strong style="color:#00f0ff;">Data We Do Not Collect</strong></p>
-      <p>We do not collect photos or images of any kind, facial recognition or biometric data, names, email addresses, or any personal information, or user accounts or login credentials.</p>
+      <p>Image processing happens in your browser. When you upload a photo, it stays in local memory for compositing. The AI person/pet detection runs locally via MediaPipe. Closing or refreshing the page clears that data from your browser.</p>
+      <p><strong style="color:#00f0ff;">Public Yearbook (opt-in)</strong></p>
+      <p>After you generate a solo or pet result, you may choose Add to the public yearbook. That action uploads only the generated retro JPEG (web size, roughly 800×1000, capped near 1.2MB). We do not upload your original. Shared entries are public and may be shown on the Yearbook page. Optional first-name / yearbook name text you already typed may be sent with the share; it is not required. Class photos and superlatives are not offered for yearbook share in this version because they can include other people.</p>
+      <p><strong style="color:#00f0ff;">What We Do Not Collect by Default</strong></p>
+      <p>Unless you opt in to the yearbook, we do not collect photos or images, facial recognition or biometric data, names, email addresses, user accounts, or login credentials. We do not run analytics on image pixels.</p>
       <p><strong style="color:#00f0ff;">Third-Party Services</strong></p>
-      <p>The App loads the MediaPipe Selfie Segmentation model from Google's CDN (cdn.jsdelivr.net). This is a standard JavaScript library download and does not transmit your photos or personal data. Google Fonts are loaded for display purposes. Cloudflare Pages hosts the App and may collect standard web analytics (page views, country-level location). No personal data or photos are shared with these services.</p>
-      <p>If you purchase Pro, payment is processed by Stripe. We do not see or store your payment details — Stripe handles all payment information securely. You can review Stripe's privacy policy at stripe.com/privacy.</p>
-      <p>The App may include links to third-party print services and Buy Me a Coffee. Clicking these links takes you to external sites governed by their own privacy policies.</p>
+      <p>The App loads the MediaPipe Selfie Segmentation model from a CDN (cdn.jsdelivr.net). That is a library download and does not transmit your photos. Google Fonts load for display. Cloudflare Pages hosts the App and may collect standard web analytics (page views, country-level location). Yearbook storage, when you opt in, uses Cloudflare (Workers KV, or R2 if enabled) on this project only.</p>
+      <p>If you purchase Pro, payment is processed by Stripe. We do not see or store your payment details. Review Stripe's privacy policy at stripe.com/privacy.</p>
+      <p>The App may include links to third-party print services and Buy Me a Coffee. Those sites have their own privacy policies.</p>
       <p><strong style="color:#00f0ff;">Cookies</strong></p>
-      <p>This App uses local storage only to remember your Pro unlock status if you purchase Pro. No tracking cookies are used.</p>
+      <p>This App uses local storage only to remember your Pro unlock status if you purchase Pro. No tracking cookies are used for ads.</p>
       <p><strong style="color:#00f0ff;">Children's Privacy</strong></p>
-      <p>This App does not knowingly collect any personal information from anyone, including children under 13.</p>
+      <p>This App is not directed to children under 13. Do not upload photos of children under 13, and do not add such images to the public yearbook. We do not knowingly collect personal information from anyone under 13. If you believe a child under 13 has shared a photo, contact us and we will remove it.</p>
       <p><strong style="color:#00f0ff;">Changes to This Policy</strong></p>
-      <p>We may update this Privacy Policy from time to time. Any changes will be reflected on this page with an updated date.</p>
+      <p>We may update this Privacy Policy from time to time. Changes will be reflected on this page with an updated date.</p>
       <p><strong style="color:#00f0ff;">Contact</strong></p>
       <p>Questions? Visit <a href="https://solutionstud.io/" target="_blank" style="color:#00f0ff;">solutionstud.io</a></p>
     `,
     terms: `
       <h2 style="font-family:'Press Start 2P',monospace;font-size:0.8rem;color:#ff2d95;margin-bottom:18px;">Terms of Use</h2>
-      <p><strong style="color:#fff;">Last updated: February 2026</strong></p>
+      <p><strong style="color:#fff;">Last updated: August 2026</strong></p>
       <p>By using Retro School Photos ("the App"), you agree to the following terms.</p>
       <p><strong style="color:#00f0ff;">What the App Does</strong></p>
-      <p>The App is a free, browser-based tool that composites your photo with retro-style laser backgrounds. All processing happens locally in your browser.</p>
-      <p><strong style="color:#00f0ff;">Your Photos, Your Responsibility</strong></p>
-      <p>You retain full ownership of any photos you use with the App. We never access, store, or claim any rights to your images. You are responsible for ensuring you have the right to use any photos you upload. Please respect others' privacy and do not use photos of people without their consent.</p>
+      <p>The App is a free, browser-based tool that composites your photo with retro-style backgrounds. Generation runs locally in your browser. An optional public yearbook lets you share a generated result if you explicitly choose to.</p>
+      <p><strong style="color:#00f0ff;">Your Photos, Your Ownership</strong></p>
+      <p>You keep full ownership of any photos you use with the App and of any results you create. We do not claim ownership of your images. By default we do not access or store them. If you opt in to the public yearbook, you grant Solution Studio a limited license to host and display that specific generated JPEG on the App (including /yearbook) so others can view it. You can still download and use your own copies however you like.</p>
+      <p><strong style="color:#00f0ff;">Your Responsibility</strong></p>
+      <p>You are responsible for ensuring you have the right to use any photos you process or share. Respect others' privacy. Do not share photos of people without their consent. Do not upload or share images of children under 13.</p>
       <p><strong style="color:#00f0ff;">Acceptable Use</strong></p>
-      <p>You agree not to use the App for any unlawful purpose, to harass, defame, or harm others, to create misleading or deceptive content intended to cause harm, or to attempt to interfere with or disrupt the App's functionality.</p>
+      <p>You agree not to use the App for any unlawful purpose, to harass, defame, or harm others, to create misleading or deceptive content intended to cause harm, to spam the yearbook, or to attempt to interfere with or disrupt the App.</p>
       <p><strong style="color:#00f0ff;">Purchases & Refunds</strong></p>
       <p>Pro unlocks are one-time purchases of $1.99 processed securely through Stripe. Your Pro status is stored locally in your browser. If you clear your browser data, you may need to repurchase. All sales are final. If you experience issues, contact us through solutionstud.io.</p>
       <p><strong style="color:#00f0ff;">Disclaimer</strong></p>
@@ -837,6 +903,18 @@
     document.body.style.overflow = '';
   }
   document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal(); });
+  (function openLegalFromHash() {
+    try {
+      const fromStore = sessionStorage.getItem('openLegal');
+      if (fromStore && LEGAL[fromStore]) {
+        sessionStorage.removeItem('openLegal');
+        showModal(fromStore);
+        return;
+      }
+      const h = (location.hash || '').replace('#', '');
+      if (h === 'privacy' || h === 'terms') showModal(h);
+    } catch (e) {}
+  })();
   </script>
 </div>
 
@@ -850,6 +928,136 @@
 // ====== CONFIG — UPDATE THESE ======
 const COUNTER_API = 'https://laser-counter.nickperez.workers.dev';
 const COFFEE_URL = '';  // e.g. 'https://buymeacoffee.com/yourname'
+const YEARBOOK_API = '/api/yearbook';
+const YEARBOOK_MAX_BYTES = Math.floor(1.2 * 1024 * 1024);
+
+// Yearbook opt-in is off by default. Only fires from the button after generate.
+const yearbookState = {
+  solo: { submitted: false, submitting: false },
+  pet: { submitted: false, submitting: false },
+};
+
+function resetYearbookOptin(mode) {
+  const key = mode === 'pet' ? 'pet' : 'solo';
+  yearbookState[key] = { submitted: false, submitting: false };
+  const wrap = document.getElementById(key + '-yearbook-optin');
+  const btn = document.getElementById(key + '-yearbook-btn');
+  const status = document.getElementById(key + '-yearbook-status');
+  if (wrap) wrap.style.display = 'none';
+  if (btn) {
+    btn.disabled = false;
+    btn.classList.remove('added');
+    btn.textContent = 'Add to the public yearbook';
+  }
+  if (status) {
+    status.textContent = '';
+    status.classList.remove('error');
+  }
+}
+
+function showYearbookOptin(mode) {
+  const key = mode === 'pet' ? 'pet' : 'solo';
+  const wrap = document.getElementById(key + '-yearbook-optin');
+  if (!wrap) return;
+  if (!yearbookState[key].submitted) {
+    const btn = document.getElementById(key + '-yearbook-btn');
+    const status = document.getElementById(key + '-yearbook-status');
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('added');
+      btn.textContent = 'Add to the public yearbook';
+    }
+    if (status) {
+      status.textContent = '';
+      status.classList.remove('error');
+    }
+  }
+  wrap.style.display = 'block';
+}
+
+function canvasToYearbookJpeg(canvas) {
+  return new Promise((resolve, reject) => {
+    // Always export the on-screen web canvas (800×1000), never print/Stories sizes.
+    canvas.toBlob((blob) => {
+      if (!blob) return reject(new Error('Could not encode JPEG'));
+      if (blob.size > YEARBOOK_MAX_BYTES) {
+        // Retry at lower quality if somehow oversized
+        canvas.toBlob((blob2) => {
+          if (!blob2) return reject(new Error('Could not encode JPEG'));
+          if (blob2.size > YEARBOOK_MAX_BYTES) {
+            return reject(new Error('Photo is too large to share (max ~1.2MB)'));
+          }
+          resolve(blob2);
+        }, 'image/jpeg', 0.72);
+        return;
+      }
+      resolve(blob);
+    }, 'image/jpeg', 0.88);
+  });
+}
+
+async function addToYearbook(mode) {
+  const key = mode === 'pet' ? 'pet' : 'solo';
+  const st = yearbookState[key];
+  if (st.submitted || st.submitting) return;
+
+  const btn = document.getElementById(key + '-yearbook-btn');
+  const status = document.getElementById(key + '-yearbook-status');
+  const canvas = document.getElementById(key === 'pet' ? 'pet-canvas' : 'output-canvas');
+  if (!canvas) return;
+
+  const nameInput = document.getElementById(key === 'pet' ? 'pet-name' : 'overlay-name');
+  const name = (nameInput && nameInput.value ? nameInput.value : '').trim().slice(0, 40);
+
+  st.submitting = true;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Uploading…';
+  }
+  if (status) {
+    status.classList.remove('error');
+    status.textContent = 'Sending the retro photo only…';
+  }
+
+  try {
+    const blob = await canvasToYearbookJpeg(canvas);
+    const form = new FormData();
+    form.append('photo', blob, 'retro_yearbook.jpg');
+    if (name) form.append('name', name);
+
+    const res = await fetch(YEARBOOK_API, {
+      method: 'POST',
+      body: form,
+      credentials: 'omit',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || ('Upload failed (' + res.status + ')'));
+    }
+
+    st.submitted = true;
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.add('added');
+      btn.textContent = 'Added';
+    }
+    if (status) {
+      status.textContent = 'In the public yearbook. View it on the Yearbook page.';
+    }
+  } catch (err) {
+    st.submitting = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Add to the public yearbook';
+    }
+    if (status) {
+      status.classList.add('error');
+      status.textContent = err.message || 'Could not add to yearbook.';
+    }
+    return;
+  }
+  st.submitting = false;
+}
 
 // Set up links
 function setupLinks() {
@@ -2444,6 +2652,8 @@ async function generatePhoto() {
     proc.classList.remove('visible');
     out.classList.add('visible');
     showShareRow();
+    resetYearbookOptin('solo');
+    showYearbookOptin('solo');
     document.getElementById('refine-btn').style.display='block';
     out.scrollIntoView({behavior:'smooth',block:'start'});
     if(BGS[selectedBg].decade==='90s')setTimeout(()=>generateGif(),300);
@@ -2456,6 +2666,8 @@ async function generatePhoto() {
     doGenerate();
     proc.classList.remove('visible');
     out.classList.add('visible');
+    resetYearbookOptin('solo');
+    showYearbookOptin('solo');
   }
 }
 
@@ -3510,6 +3722,7 @@ async function generateGif() {
 function startOver() {
   uploadedImage = null;
   personMask = null;
+  resetYearbookOptin('solo');
   document.getElementById('output-area').classList.remove('visible');
   document.getElementById('preview-img').style.display = 'none';
   document.getElementById('upload-placeholder').style.display = 'block';
@@ -3902,6 +4115,8 @@ async function generatePetPhoto() {
 
     document.getElementById('pet-download').href = petCanvas.toDataURL('image/jpeg', 0.92);
     document.getElementById('pet-output').style.display = 'block';
+    resetYearbookOptin('pet');
+    showYearbookOptin('pet');
     status.textContent = '';
     playShutterSound(); triggerFlash();
     document.getElementById('pet-output').scrollIntoView({behavior: 'smooth', block: 'center'});
@@ -3935,6 +4150,7 @@ function copyPetToClipboard() {
 function resetPetMode() {
   petPhoto = null;
   petPersonMask = null;
+  resetYearbookOptin('pet');
   document.getElementById('pet-preview-img').style.display = 'none';
   document.getElementById('pet-upload-placeholder').style.display = '';
   document.getElementById('pet-change-btn').style.display = 'none';

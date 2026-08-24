@@ -10,3 +10,5 @@ Static single-page app. All HTML, CSS, and JS live in `index.html`. Photo genera
 - Core flow to smoke-test ("hello world"): upload a portrait photo into the `#photo-input` upload zone, then click the enabled `Generate Now` button (`#generate-btn`) → a generated retro school photo appears in the result section.
 - Test images: use a real face photo for meaningful results (face detection/segmentation runs on it). `https://randomuser.me/api/portraits/men/32.jpg` works from this environment; `upload.wikimedia.org` blocks non-browser requests (returns an HTML error page), so avoid it for fetching test images via curl.
 - Config knobs near the top of the inline script: `COUNTER_API` (hit-counter Worker URL) and `COFFEE_URL` (empty). These are optional and not needed to run.
+- Public yearbook (opt-in): Pages Functions under `functions/` + KV binding `YEARBOOK` (namespace `retro-yearbook`). See README for R2 upgrade (`YEARBOOK_R2` / bucket `retro-yearbook`).
+
