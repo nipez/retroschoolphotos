@@ -2088,8 +2088,10 @@ function generateComparisonCard() {
   ctx.fillRect(0, barY, W, H - barY);
   ctx.strokeStyle='rgba(255,45,149,0.2)'; ctx.lineWidth=1;
   ctx.beginPath(); ctx.moveTo(0,barY); ctx.lineTo(W,barY); ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.font="32px 'VT323',monospace";
-  ctx.fillText('retroschoolphotos.com',W/2,barY+45);
+  ctx.fillStyle='rgba(255,255,255,0.85)'; ctx.font="44px 'VT323',monospace";
+  ctx.shadowColor='rgba(0,0,0,0.85)'; ctx.shadowBlur=8; ctx.shadowOffsetY=2;
+  ctx.fillText('retroschoolphotos.com',W/2,barY+48);
+  ctx.shadowBlur=0; ctx.shadowOffsetY=0;
   ctx.restore();
 
   document.getElementById('comparison-download').href=canvas.toDataURL('image/jpeg',0.92);
@@ -2296,13 +2298,7 @@ function recompositeFromMask() {
   const W = eraserW, H = eraserH;
 
   // Watermark
-  ctx.save();
-  const wmSize = Math.round(W * 0.018);
-  ctx.font = `${wmSize}px 'VT323', monospace`;
-  ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-  ctx.fillStyle = 'rgba(255,255,255,0.25)';
-  ctx.fillText('retroschoolphotos.com', W - 10, H - 8);
-  ctx.restore();
+  drawSiteWatermark(ctx, W, H);
 
   // Name/year
   const overlayName = document.getElementById('overlay-name').value.trim();
@@ -2312,7 +2308,8 @@ function recompositeFromMask() {
     const fontSize = Math.round(W * 0.032);
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1;
-    let textY = H - Math.round(H * 0.03);
+    const wmClear = Math.max(26, Math.round(W * 0.042)) + Math.max(12, Math.round(W * 0.016)) + 10;
+    let textY = H - Math.max(Math.round(H * 0.03), wmClear);
     const lineH = fontSize * 1.4;
     if (overlayYear) {
       ctx.fillStyle = 'rgba(255,255,255,0.7)';
@@ -2507,9 +2504,13 @@ function doGenerate(opts) {
   const ctx = canvas.getContext('2d');
   const W = opts.W || 800, H = opts.H || 1000;
   const skipSideEffects = !!opts.skipSideEffects;
-  // Keep expensive mask morphology near preview cost at large export sizes
-  // (backdrop + portrait still render at full W×H — not an upscale).
-  const edgePx = (n) => Math.max(1, Math.round(n * Math.min(1, 800 / W)));
+  // Morphology runs at preview-equivalent resolution (≤800 wide), then the
+  // mask is bilinear-upsampled to W×H. That keeps web identical and gives
+  // print/Stories a smooth anti-aliased edge — not a stair-stepped nearest
+  // upscale of an under-feathered full-res mask.
+  const mW = Math.min(W, 800);
+  const mH = Math.round(mW * (H / W));
+  const maskUpscaled = (mW !== W || mH !== H);
   canvas.width = W; canvas.height = H;
 
   const img = uploadedImage;
@@ -2524,16 +2525,36 @@ function doGenerate(opts) {
   const laserData = lc.getContext('2d').getImageData(0, 0, W, H);
   const ld = laserData.data;
 
+  // Build mask at morph working size (high-quality drawImage scale from MediaPipe)
   let mask;
-  if (personMask) {
-    const mc = document.createElement('canvas'); mc.width=W; mc.height=H;
+  {
+    const mc = document.createElement('canvas'); mc.width = mW; mc.height = mH;
     const mctx = mc.getContext('2d');
-    mctx.drawImage(personMask, sx, sy, sw, sh, 0, 0, W, H);
-    const mData = mctx.getImageData(0, 0, W, H).data;
-    mask = new Float32Array(W * H);
-    for(let i=0; i<mask.length; i++) { mask[i] = mData[i*4] / 255; }
-  } else {
-    mask = fallbackMask(pd, W, H);
+    mctx.imageSmoothingEnabled = true;
+    mctx.imageSmoothingQuality = 'high';
+    if (personMask) {
+      mctx.drawImage(personMask, sx, sy, sw, sh, 0, 0, mW, mH);
+      const mData = mctx.getImageData(0, 0, mW, mH).data;
+      mask = new Float32Array(mW * mH);
+      for (let i = 0; i < mask.length; i++) mask[i] = mData[i * 4] / 255;
+    } else {
+      // fallbackMask needs portrait pixels at working size
+      mctx.drawImage(img, sx, sy, sw, sh, 0, 0, mW, mH);
+      const fp = mctx.getImageData(0, 0, mW, mH);
+      mask = fallbackMask(fp.data, mW, mH);
+    }
+  }
+
+  // Downscaled portrait for pet decontamination (same resolution as working mask)
+  let pdWork = null;
+  let bgR = 0, bgG = 0, bgB = 0;
+  if (isPetMode) {
+    const pc = document.createElement('canvas'); pc.width = mW; pc.height = mH;
+    const pctx = pc.getContext('2d');
+    pctx.imageSmoothingEnabled = true;
+    pctx.imageSmoothingQuality = 'high';
+    pctx.drawImage(img, sx, sy, sw, sh, 0, 0, mW, mH);
+    pdWork = pctx.getImageData(0, 0, mW, mH).data;
   }
 
   const decade = BGS[selectedBg].decade;
@@ -2541,101 +2562,121 @@ function doGenerate(opts) {
   // Pet mode: aggressive cleanup before standard processing
   if (isPetMode) {
     // Sample original background color from corners FIRST (before any mask changes)
-    let bgR=0, bgG=0, bgB=0, bgCount=0;
-    const sampleSize = Math.round(W * 0.15);
-    for (let y=0; y<sampleSize; y++) {
-      for (let x=0; x<sampleSize; x++) {
-        const si = (y*W+x)*4;
-        bgR+=pd[si]; bgG+=pd[si+1]; bgB+=pd[si+2]; bgCount++;
-        const si2 = (y*W+(W-1-x))*4;
-        bgR+=pd[si2]; bgG+=pd[si2+1]; bgB+=pd[si2+2]; bgCount++;
+    let bgCount = 0;
+    const sampleSize = Math.round(mW * 0.15);
+    for (let y = 0; y < sampleSize; y++) {
+      for (let x = 0; x < sampleSize; x++) {
+        const si = (y * mW + x) * 4;
+        bgR += pdWork[si]; bgG += pdWork[si + 1]; bgB += pdWork[si + 2]; bgCount++;
+        const si2 = (y * mW + (mW - 1 - x)) * 4;
+        bgR += pdWork[si2]; bgG += pdWork[si2 + 1]; bgB += pdWork[si2 + 2]; bgCount++;
       }
     }
-    bgR/=bgCount; bgG/=bgCount; bgB/=bgCount;
+    bgR /= bgCount; bgG /= bgCount; bgB /= bgCount;
 
     // PASS 1: Wide-band color decontamination on raw mask (before threshold)
-    // This catches the contaminated pixels BEFORE we throw them away
-    for(let i=0;i<mask.length;i++){
-      if(mask[i] > 0.05 && mask[i] < 1.0){
-        const pi = i*4;
-        // How close is this pixel's color to the background?
-        const dR = pd[pi]-bgR, dG = pd[pi+1]-bgG, dB = pd[pi+2]-bgB;
-        const dist = Math.sqrt(dR*dR + dG*dG + dB*dB);
-        if (dist < 120) { // pixel is suspiciously close to bg color
+    for (let i = 0; i < mask.length; i++) {
+      if (mask[i] > 0.05 && mask[i] < 1.0) {
+        const pi = i * 4;
+        const dR = pdWork[pi] - bgR, dG = pdWork[pi + 1] - bgG, dB = pdWork[pi + 2] - bgB;
+        const dist = Math.sqrt(dR * dR + dG * dG + dB * dB);
+        if (dist < 120) {
           const strength = (1 - mask[i]) * 1.5;
-          pd[pi]   = Math.min(255, Math.max(0, pd[pi]   + dR * strength));
-          pd[pi+1] = Math.min(255, Math.max(0, pd[pi+1] + dG * strength));
-          pd[pi+2] = Math.min(255, Math.max(0, pd[pi+2] + dB * strength));
+          pdWork[pi]     = Math.min(255, Math.max(0, pdWork[pi]     + dR * strength));
+          pdWork[pi + 1] = Math.min(255, Math.max(0, pdWork[pi + 1] + dG * strength));
+          pdWork[pi + 2] = Math.min(255, Math.max(0, pdWork[pi + 2] + dB * strength));
         }
       }
     }
 
     // Hard threshold to kill fuzzy edges
-    for(let i=0;i<mask.length;i++){
-      if(mask[i] < 0.55) mask[i] = 0;
-      else if(mask[i] < 0.8) mask[i] = (mask[i] - 0.55) / 0.25;
+    for (let i = 0; i < mask.length; i++) {
+      if (mask[i] < 0.55) mask[i] = 0;
+      else if (mask[i] < 0.8) mask[i] = (mask[i] - 0.55) / 0.25;
       else mask[i] = 1;
     }
-    // Erode mask heavily to cut away remaining fringe
-    contractMask(mask, W, H, edgePx(10));
-    smoothMask(mask, W, H, W > 1200 ? 2 : 4);
+    // Erode mask heavily to cut away remaining fringe (preview-scale radii)
+    contractMask(mask, mW, mH, 10);
+    smoothMask(mask, mW, mH, 4);
 
     // PASS 2: Tight-band decontamination on eroded edges
-    for(let i=0;i<mask.length;i++){
-      if(mask[i] > 0.01 && mask[i] < 0.99){
-        const pi = i*4;
+    for (let i = 0; i < mask.length; i++) {
+      if (mask[i] > 0.01 && mask[i] < 0.99) {
+        const pi = i * 4;
         const strength = (1 - mask[i]) * 1.5;
-        pd[pi]   = Math.min(255, Math.max(0, pd[pi]   + (pd[pi]   - bgR) * strength));
-        pd[pi+1] = Math.min(255, Math.max(0, pd[pi+1] + (pd[pi+1] - bgG) * strength));
-        pd[pi+2] = Math.min(255, Math.max(0, pd[pi+2] + (pd[pi+2] - bgB) * strength));
+        pdWork[pi]     = Math.min(255, Math.max(0, pdWork[pi]     + (pdWork[pi]     - bgR) * strength));
+        pdWork[pi + 1] = Math.min(255, Math.max(0, pdWork[pi + 1] + (pdWork[pi + 1] - bgG) * strength));
+        pdWork[pi + 2] = Math.min(255, Math.max(0, pdWork[pi + 2] + (pdWork[pi + 2] - bgB) * strength));
       }
     }
   }
 
-  for(let i=0;i<mask.length;i++){if(mask[i]>0.35)mask[i]=Math.min(1,mask[i]*1.4+0.2);else if(mask[i]<0.15)mask[i]=0;}
-  smoothMask(mask, W, H, W > 1200 ? 1 : 2);
+  for (let i = 0; i < mask.length; i++) {
+    if (mask[i] > 0.35) mask[i] = Math.min(1, mask[i] * 1.4 + 0.2);
+    else if (mask[i] < 0.15) mask[i] = 0;
+  }
+  smoothMask(mask, mW, mH, 2);
 
   // For modern/special decades: tighten edges before era processing
   if (decade === '00s' || decade === '10s' || decade === 'special') {
-    // Hard threshold — kill the fuzzy edge pixels that cause the aura
-    for(let i=0;i<mask.length;i++){
-      if(mask[i] < 0.6) mask[i] = 0;
-      else if(mask[i] < 0.8) mask[i] = (mask[i] - 0.6) / 0.2;
+    for (let i = 0; i < mask.length; i++) {
+      if (mask[i] < 0.6) mask[i] = 0;
+      else if (mask[i] < 0.8) mask[i] = (mask[i] - 0.6) / 0.2;
       else mask[i] = 1;
     }
   }
 
-  // ====== ERA-APPROPRIATE MASK SOFTENING ======
+  // ====== ERA-APPROPRIATE MASK SOFTENING (preview-scale radii) ======
 
   if (decade === '70s') {
-    const softPasses = W > 1200 ? 2 : 6;
-    for (let p = 0; p < softPasses; p++) smoothMask(mask, W, H, W > 1200 ? 2 : 5);
+    for (let p = 0; p < 6; p++) smoothMask(mask, mW, mH, 5);
     for (let i = 0; i < mask.length; i++) {
       if (mask[i] > 0.95) mask[i] = 0.95 + (mask[i] - 0.95) * 0.5;
     }
   } else if (decade === '90s') {
-    const softPasses = W > 1200 ? 1 : 3;
-    for (let p = 0; p < softPasses; p++) smoothMask(mask, W, H, W > 1200 ? 1 : 3);
+    for (let p = 0; p < 3; p++) smoothMask(mask, mW, mH, 3);
   } else if (decade === '80s') {
-    const softPasses = W > 1200 ? 1 : 3;
-    for (let p = 0; p < softPasses; p++) smoothMask(mask, W, H, W > 1200 ? 1 : 3);
+    for (let p = 0; p < 3; p++) smoothMask(mask, mW, mH, 3);
   } else {
-    // 00s, 10s, special: tight edges — erode then lightly smooth
-    contractMask(mask, W, H, edgePx(3));
-    smoothMask(mask, W, H, 1);
+    contractMask(mask, mW, mH, 3);
+    smoothMask(mask, mW, mH, 1);
+  }
+
+  // Edge-aware feathering at working resolution (same as web preview)
+  if (decade === '70s') {
+    featherMaskEdges(mask, mW, mH, 5, 0.03, 0.97);
+  } else if (decade === '80s' || decade === '90s') {
+    featherMaskEdges(mask, mW, mH, 4, 0.04, 0.96);
+  } else {
+    featherMaskEdges(mask, mW, mH, 3, 0.05, 0.95);
+  }
+
+  // Upsample processed mask to full output size with bilinear interpolation
+  if (maskUpscaled) {
+    mask = upsampleMask(mask, mW, mH, W, H);
+    // Light full-res feather so the edge stays anti-aliased after scale-up
+    const aaR = Math.max(2, Math.round(3 * (W / 800)));
+    featherMaskEdges(mask, W, H, aaR, 0.02, 0.98);
+  }
+
+  // Pet: apply fringe cleanup onto full-res portrait using the final mask
+  if (isPetMode) {
+    for (let i = 0; i < mask.length; i++) {
+      if (mask[i] > 0.05 && mask[i] < 0.99) {
+        const pi = i * 4;
+        const strength = (1 - mask[i]) * 1.2;
+        const dR = pd[pi] - bgR, dG = pd[pi + 1] - bgG, dB = pd[pi + 2] - bgB;
+        const dist = Math.sqrt(dR * dR + dG * dG + dB * dB);
+        if (dist < 100) {
+          pd[pi]     = Math.min(255, Math.max(0, pd[pi]     + dR * strength));
+          pd[pi + 1] = Math.min(255, Math.max(0, pd[pi + 1] + dG * strength));
+          pd[pi + 2] = Math.min(255, Math.max(0, pd[pi + 2] + dB * strength));
+        }
+      }
+    }
   }
 
   // ====== AGE THE PERSON PIXELS BEFORE COMPOSITING ======
-  // Apply edge-aware feathering for natural hair/shoulder blending
-  // Retro decades get softer feathering, modern decades get tighter
-  if (decade === '70s') {
-    featherMaskEdges(mask, W, H, edgePx(5), 0.03, 0.97);
-  } else if (decade === '80s' || decade === '90s') {
-    featherMaskEdges(mask, W, H, edgePx(4), 0.04, 0.96);
-  } else {
-    featherMaskEdges(mask, W, H, edgePx(3), 0.05, 0.95);
-  }
-
   // This is the key — make the person look like they were photographed
   // with era-appropriate camera technology, not a 2026 iPhone
   for(let i = 0; i < pd.length; i += 4) {
@@ -2738,7 +2779,7 @@ function doGenerate(opts) {
       }
     }
     // Propagate distances inward (simple BFS-like spread, a few passes)
-    const maxSpread = W > 1200 ? 4 : 12;
+    const maxSpread = 12;
     for (let pass = 0; pass < maxSpread; pass++) {
       for(let y = 1; y < H-1; y++) {
         for(let x = 1; x < W-1; x++) {
@@ -3068,14 +3109,7 @@ function doGenerate(opts) {
   }
 
   // ====== WATERMARK ======
-  ctx.save();
-  const wmSize = Math.round(W * 0.018);
-  ctx.font = `${wmSize}px 'VT323', monospace`;
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'bottom';
-  ctx.fillStyle = 'rgba(255,255,255,0.25)';
-  ctx.fillText('retroschoolphotos.com', W - 10, H - 8);
-  ctx.restore();
+  drawSiteWatermark(ctx, W, H);
 
   // ====== NAME / YEAR OVERLAY ======
   const overlayName = document.getElementById('overlay-name').value.trim();
@@ -3088,7 +3122,9 @@ function doGenerate(opts) {
     ctx.shadowColor = 'rgba(0,0,0,0.6)';
     ctx.shadowBlur = 4;
     ctx.shadowOffsetY = 1;
-    let textY = H - Math.round(H * 0.03);
+    // Sit above the corner watermark (scales with W)
+    const wmClear = Math.max(26, Math.round(W * 0.042)) + Math.max(12, Math.round(W * 0.016)) + 10;
+    let textY = H - Math.max(Math.round(H * 0.03), wmClear);
     const lineH = fontSize * 1.4;
     if (overlayYear) {
       ctx.fillStyle = 'rgba(255,255,255,0.7)';
@@ -3250,12 +3286,7 @@ function renderPetAtSize(W, H) {
     pctx.fillText(petName, W / 2, H - W * 0.04);
     pctx.restore();
   }
-  pctx.save();
-  pctx.textAlign = 'right'; pctx.textBaseline = 'bottom';
-  pctx.fillStyle = 'rgba(255,255,255,0.25)';
-  pctx.font = Math.round(W * 0.018) + "px 'VT323', monospace";
-  pctx.fillText('retroschoolphotos.com', W - 12, H - 8);
-  pctx.restore();
+  drawSiteWatermark(pctx, W, H);
   return off;
 }
 
@@ -3401,7 +3432,7 @@ async function generateGif() {
     fctx.putImageData(out, 0, 0);
     const gN=document.getElementById('overlay-name').value.trim(),gY=document.getElementById('overlay-year').value;
     if(gN||gY){fctx.save();const fs=Math.round(W*0.032);fctx.textAlign='center';fctx.textBaseline='bottom';fctx.shadowColor='rgba(0,0,0,0.6)';fctx.shadowBlur=3;let ty=H-Math.round(H*0.03);if(gY){fctx.fillStyle='rgba(255,255,255,0.7)';fctx.font=`${Math.round(fs*0.85)}px Georgia,serif`;fctx.fillText('Class of '+gY,W/2,ty);ty-=fs*1.4;}if(gN){fctx.fillStyle='rgba(255,255,255,0.85)';fctx.font=`italic ${fs}px Georgia,serif`;fctx.fillText(gN,W/2,ty);}fctx.restore();}
-    fctx.save();const wS=Math.round(W*0.018);fctx.font=`${wS}px VT323,monospace`;fctx.textAlign='right';fctx.textBaseline='bottom';fctx.fillStyle='rgba(255,255,255,0.25)';fctx.fillText('retroschoolphotos.com',W-6,H-5);fctx.restore();
+    drawSiteWatermark(fctx, W, H);
     gif.addFrame(fctx, {copy: true, delay: FRAME_DELAY});
     progFill.style.width = Math.round((f+1)/FRAMES * 60) + '%';
     progText.textContent = `Rendering frame ${f+1}/${FRAMES}...`;
@@ -3468,6 +3499,57 @@ function startOver() {
 }
 
 // ====== MASK UTILITIES ======
+/** Bilinear upsample of a float mask via canvas (not nearest-neighbor). */
+function upsampleMask(mask, srcW, srcH, dstW, dstH) {
+  if (srcW === dstW && srcH === dstH) return mask;
+  const src = document.createElement('canvas');
+  src.width = srcW; src.height = srcH;
+  const sctx = src.getContext('2d');
+  const img = sctx.createImageData(srcW, srcH);
+  const d = img.data;
+  for (let i = 0; i < mask.length; i++) {
+    const v = Math.round(Math.max(0, Math.min(1, mask[i])) * 255);
+    const o = i * 4;
+    d[o] = d[o + 1] = d[o + 2] = v;
+    d[o + 3] = 255;
+  }
+  sctx.putImageData(img, 0, 0);
+  const dst = document.createElement('canvas');
+  dst.width = dstW; dst.height = dstH;
+  const dctx = dst.getContext('2d');
+  dctx.imageSmoothingEnabled = true;
+  dctx.imageSmoothingQuality = 'high';
+  dctx.drawImage(src, 0, 0, srcW, srcH, 0, 0, dstW, dstH);
+  const out = dctx.getImageData(0, 0, dstW, dstH).data;
+  const result = new Float32Array(dstW * dstH);
+  for (let i = 0; i < result.length; i++) result[i] = out[i * 4] / 255;
+  return result;
+}
+
+/** Site watermark — scales with canvas; readable on dark shirts. */
+function drawSiteWatermark(ctx, W, H) {
+  ctx.save();
+  // ~3.2× old 0.018 size — clear on Web, print, and Stories without covering the face
+  const wmSize = Math.max(26, Math.round(W * 0.042));
+  const pad = Math.max(12, Math.round(W * 0.016));
+  ctx.font = `${wmSize}px 'VT323', monospace`;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'bottom';
+  // Dark halo so white type stays legible on dark shirts / neon backdrops
+  ctx.shadowColor = 'rgba(0,0,0,0.95)';
+  ctx.shadowBlur = Math.max(5, Math.round(wmSize * 0.4));
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = Math.max(1, Math.round(wmSize * 0.12));
+  ctx.fillStyle = 'rgba(255,255,255,0.88)';
+  ctx.fillText('retroschoolphotos.com', W - pad, H - pad);
+  // Second pass without blur for a crisper glyph on top of the shadow
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.fillText('retroschoolphotos.com', W - pad, H - pad);
+  ctx.restore();
+}
+
 function smoothMask(mask, w, h, passes) {
   const tmp = new Float32Array(w * h);
   const r = 4;
@@ -3777,13 +3859,8 @@ async function generatePetPhoto() {
       pctx.restore();
     }
 
-    // Branding
-    pctx.save();
-    pctx.textAlign = 'right'; pctx.textBaseline = 'bottom';
-    pctx.fillStyle = 'rgba(255,255,255,0.25)';
-    pctx.font = Math.round(CW * 0.018) + "px 'VT323', monospace";
-    pctx.fillText('retroschoolphotos.com', CW - 12, CH - 8);
-    pctx.restore();
+    // Branding (doGenerate already stamped one; redraw with shared prominent style)
+    drawSiteWatermark(pctx, CW, CH);
 
     // Restore solo mode state
     uploadedImage = savedImage;
@@ -4313,9 +4390,12 @@ function renderSuperlativesGrid(cards) {
 
   // Footer branding
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-  ctx.fillStyle = 'rgba(255,255,255,0.25)';
-  ctx.font = Math.round(footerH * 0.45) + "px 'VT323', monospace";
+  ctx.shadowColor = 'rgba(0,0,0,0.85)';
+  ctx.shadowBlur = Math.max(4, Math.round(footerH * 0.2));
+  ctx.fillStyle = 'rgba(255,255,255,0.78)';
+  ctx.font = Math.round(Math.max(18, footerH * 0.55)) + "px 'VT323', monospace";
   ctx.fillText('retroschoolphotos.com', totalW / 2, totalH - 10);
+  ctx.shadowBlur = 0;
 
   // Set download link
   document.getElementById('super-download').href = canvas.toDataURL('image/jpeg', 0.92);
@@ -4913,9 +4993,14 @@ async function generateClassPhoto() {
 
     // Branding
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#bbb';
-    ctx.font = "13px Georgia, serif";
+    ctx.textBaseline = 'middle';
+    const cpWm = Math.max(16, Math.round(Math.min(CW, CH) * 0.018));
+    ctx.shadowColor = 'rgba(0,0,0,0.35)';
+    ctx.shadowBlur = 3;
+    ctx.fillStyle = '#666';
+    ctx.font = cpWm + "px 'VT323', monospace";
     ctx.fillText('retroschoolphotos.com', CW / 2, CH - bottomH + 18);
+    ctx.shadowBlur = 0;
 
     // Done
     document.getElementById('cp-download').href = canvas.toDataURL('image/jpeg', 0.92);
