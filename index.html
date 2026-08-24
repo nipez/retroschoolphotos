@@ -995,31 +995,34 @@ const BGS = [
     name: 'Laser Sphere', premium: true, decade: '90s',
     draw(ctx, w, h) {
       // Curved arcing beams forming a sphere/web — inspired by the classic spiral backdrop
+      // Radii/strokes scale with canvas so direct draws stay proportional;
+      // solo export also goes through drawBackdrop(800×1000 → cover).
       ctx.fillStyle='#050510';ctx.fillRect(0,0,w,h);
+      const s = Math.min(w, h) / 1000;
       const cx=w*.52,cy=h*.45;
       const arc=(startA,endA,r,c,bw,bl)=>{
         ctx.save();ctx.shadowColor=c;ctx.shadowBlur=bl;ctx.strokeStyle=c;
         ctx.lineWidth=bw;ctx.globalAlpha=.55;
         ctx.beginPath();ctx.arc(cx,cy,r,startA,endA);ctx.stroke();ctx.stroke();
-        ctx.strokeStyle='#fff';ctx.lineWidth=bw*.25;ctx.globalAlpha=.3;ctx.shadowBlur=3;
+        ctx.strokeStyle='#fff';ctx.lineWidth=bw*.25;ctx.globalAlpha=.3;ctx.shadowBlur=Math.max(1,3*s);
         ctx.beginPath();ctx.arc(cx,cy,r,startA,endA);ctx.stroke();
         ctx.restore();
       };
       // Pink arcs — right side
       for(let i=0;i<8;i++){
-        const r=80+i*45;
-        arc(-Math.PI*.4, Math.PI*.45, r, '#e060b0', 4+Math.random()*2, 18);
+        const r=(80+i*45)*s;
+        arc(-Math.PI*.4, Math.PI*.45, r, '#e060b0', (4+Math.random()*2)*s, 18*s);
       }
       // Cyan arcs — left side
       for(let i=0;i<8;i++){
-        const r=80+i*45;
-        arc(Math.PI*.55, Math.PI*1.4, r, '#60b0e8', 4+Math.random()*2, 18);
+        const r=(80+i*45)*s;
+        arc(Math.PI*.55, Math.PI*1.4, r, '#60b0e8', (4+Math.random()*2)*s, 18*s);
       }
       // Vertical arcs crossing
       for(let i=0;i<6;i++){
-        const r=100+i*50;
-        arc(-Math.PI*.85, -Math.PI*.15, r, '#d070c0', 3, 14);
-        arc(Math.PI*.15, Math.PI*.85, r, '#70c0e0', 3, 14);
+        const r=(100+i*50)*s;
+        arc(-Math.PI*.85, -Math.PI*.15, r, '#d070c0', 3*s, 14*s);
+        arc(Math.PI*.15, Math.PI*.85, r, '#70c0e0', 3*s, 14*s);
       }
     }
   },
@@ -1030,18 +1033,19 @@ const BGS = [
       const g=ctx.createLinearGradient(0,0,w*.2,h);
       g.addColorStop(0,'#0a0a2a');g.addColorStop(.5,'#101040');g.addColorStop(1,'#080820');
       ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
-      const L=(x1,y1,x2,y2,c,bw,bl)=>{ctx.save();ctx.shadowColor=c;ctx.shadowBlur=bl;ctx.strokeStyle=c;ctx.lineWidth=bw;ctx.globalAlpha=.55;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=bw*.2;ctx.globalAlpha=.3;ctx.shadowBlur=3;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.restore();};
+      const s = Math.min(w, h) / 1000;
+      const L=(x1,y1,x2,y2,c,bw,bl)=>{ctx.save();ctx.shadowColor=c;ctx.shadowBlur=bl;ctx.strokeStyle=c;ctx.lineWidth=bw;ctx.globalAlpha=.55;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=bw*.2;ctx.globalAlpha=.3;ctx.shadowBlur=Math.max(1,3*s);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.restore();};
       // Dense pink streaks going top-right to bottom-left
       for(let i=0;i<12;i++){
-        const offset=i*35-60;
-        L(offset,0,offset+w*.35,h,'#e060a0',4,16);
-        L(offset+15,0,offset+w*.35+15,h,'#d050a0',3,12);
+        const offset=i*35*s-60*s;
+        L(offset,0,offset+w*.35,h,'#e060a0',4*s,16*s);
+        L(offset+15*s,0,offset+w*.35+15*s,h,'#d050a0',3*s,12*s);
       }
       // Dense cyan streaks going top-left to bottom-right
       for(let i=0;i<12;i++){
-        const offset=w-i*35+60;
-        L(offset,0,offset-w*.35,h,'#60a0e0',4,16);
-        L(offset-15,0,offset-w*.35-15,h,'#5090d0',3,12);
+        const offset=w-i*35*s+60*s;
+        L(offset,0,offset-w*.35,h,'#60a0e0',4*s,16*s);
+        L(offset-15*s,0,offset-w*.35-15*s,h,'#5090d0',3*s,12*s);
       }
     }
   },
@@ -1707,6 +1711,34 @@ const BGS = [
 
 ];
 
+// Web authoring size for backdrops. Export sizes (8×10, Stories, etc.) draw at this
+// logical size then cover-scale onto the target canvas so hardcoded art (e.g. Laser
+// Sphere arc radii) keeps the same framing as the 800×1000 Web preview.
+const BG_REF_W = 800, BG_REF_H = 1000;
+
+function drawBackdrop(bg, ctx, w, h) {
+  if (!bg || typeof bg.draw !== 'function') return;
+  if (w === BG_REF_W && h === BG_REF_H) {
+    bg.draw(ctx, w, h);
+    return;
+  }
+  const tmp = document.createElement('canvas');
+  tmp.width = BG_REF_W;
+  tmp.height = BG_REF_H;
+  bg.draw(tmp.getContext('2d'), BG_REF_W, BG_REF_H);
+  // Cover: scale uniformly to fill dest (may crop on non-4:5 like Stories)
+  const scale = Math.max(w / BG_REF_W, h / BG_REF_H);
+  const dw = BG_REF_W * scale, dh = BG_REF_H * scale;
+  const dx = (w - dw) / 2, dy = (h - dh) / 2;
+  ctx.save();
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, w, h);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(tmp, dx, dy, dw, dh);
+  ctx.restore();
+}
+
 const THUMB_80S = {
   'Classic Reflection': 'data:image/jpeg;base64,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',
   'Blue Canvas': 'data:image/jpeg;base64,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',
@@ -1767,7 +1799,7 @@ function renderBgGrid() {
     };
     const c = document.createElement('canvas'); c.width=200; c.height=250;
     const cctx = c.getContext('2d');
-    bg.draw(cctx, 200, 250);
+    drawBackdrop(bg, cctx, 200, 250);
     // For 80s reflection backgrounds, use real photo thumbnails
     if (bg.reflection && THUMB_80S_IMGS[bg.name]) {
       const thumbImg = THUMB_80S_IMGS[bg.name];
@@ -2521,7 +2553,7 @@ function doGenerate(opts) {
   const pd = portraitData.data;
 
   const lc = document.createElement('canvas'); lc.width=W; lc.height=H;
-  BGS[selectedBg].draw(lc.getContext('2d'), W, H);
+  drawBackdrop(BGS[selectedBg], lc.getContext('2d'), W, H);
   const laserData = lc.getContext('2d').getImageData(0, 0, W, H);
   const ld = laserData.data;
 
@@ -2893,7 +2925,7 @@ function doGenerate(opts) {
       ctx.clearRect(0, 0, W, H);
       const bgCanvas = document.createElement('canvas');
       bgCanvas.width = W; bgCanvas.height = H;
-      BGS[selectedBg].draw(bgCanvas.getContext('2d'), W, H);
+      drawBackdrop(BGS[selectedBg], bgCanvas.getContext('2d'), W, H);
       ctx.drawImage(bgCanvas, 0, 0);
 
       // Step 5: Draw FLIPPED ghost face — horizontally mirrored, positioned right
@@ -3402,10 +3434,10 @@ async function generateGif() {
   const frameCanvas = document.createElement('canvas'); frameCanvas.width=W; frameCanvas.height=H;
   const fctx = frameCanvas.getContext('2d');
 
-  // Draw a larger background we can pan across
+  // Draw a larger background we can pan across (authored at Web size, cover-scaled)
   const bgW = W + 100, bgH = H + 100;
   const bigBg = document.createElement('canvas'); bigBg.width = bgW; bigBg.height = bgH;
-  BGS[bgIdx].draw(bigBg.getContext('2d'), bgW, bgH);
+  drawBackdrop(BGS[bgIdx], bigBg.getContext('2d'), bgW, bgH);
 
   for(let f = 0; f < FRAMES; f++) {
     // Shift background diagonally per frame
@@ -3766,7 +3798,7 @@ function renderPetBgGrid() {
     c.width = 200; c.height = 250;
     c.style.pointerEvents = 'none';
     const cctx = c.getContext('2d');
-    bg.draw(cctx, 200, 250);
+    drawBackdrop(bg, cctx, 200, 250);
     // For 80s reflection backgrounds, show pet-specific preview thumbnails
     if (bg.reflection && THUMB_80S_PET_IMGS[bg.name]) {
       const thumbImg = THUMB_80S_PET_IMGS[bg.name];
@@ -4216,7 +4248,7 @@ async function generateSuperlatives() {
       cardCanvas.width = CARD_W; cardCanvas.height = CARD_H;
       const cardCtx = cardCanvas.getContext('2d');
       const bgIdx = decadeBgs[fi % decadeBgs.length];
-      BGS[bgIdx].draw(cardCtx, CARD_W, CARD_H);
+      drawBackdrop(BGS[bgIdx], cardCtx, CARD_W, CARD_H);
 
       // Composite person onto background using combined mask
       const personData = cropCtx.getImageData(0, 0, CARD_W, CARD_H);
@@ -4949,7 +4981,7 @@ async function generateClassPhoto() {
           personCounter++;
           const bgCanvas = document.createElement('canvas');
           bgCanvas.width = portraitW; bgCanvas.height = portraitH;
-          BGS[bgIdx].draw(bgCanvas.getContext('2d'), portraitW, portraitH);
+          drawBackdrop(BGS[bgIdx], bgCanvas.getContext('2d'), portraitW, portraitH);
           pctx.drawImage(bgCanvas, 0, 0);
 
           const bgPx = pctx.getImageData(0, 0, portraitW, portraitH);
