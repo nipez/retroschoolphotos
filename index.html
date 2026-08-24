@@ -857,7 +857,7 @@
       <p><strong style="color:#00f0ff;">What We Do Not Collect by Default</strong></p>
       <p>Unless you opt in to the yearbook, we do not collect photos or images, facial recognition or biometric data, names, email addresses, user accounts, or login credentials. We do not run analytics on image pixels.</p>
       <p><strong style="color:#00f0ff;">Third-Party Services</strong></p>
-      <p>The App loads the MediaPipe Selfie Segmentation model from a CDN (cdn.jsdelivr.net). That is a library download and does not transmit your photos. Google Fonts load for display. Cloudflare Pages hosts the App and may collect standard web analytics (page views, country-level location). Yearbook storage, when you opt in, uses Cloudflare (Workers KV, or R2 if enabled) on this project only.</p>
+      <p>The App loads the MediaPipe Selfie Segmentation model from a CDN (cdn.jsdelivr.net). That is a library download and does not transmit your photos. Google Fonts load for display. Cloudflare Pages hosts the App and may collect standard web analytics (page views, country-level location). Yearbook storage, when you opt in, uses a private Cloudflare R2 bucket on this project; images are served only through the App's own API, not a public object URL.</p>
       <p>If you purchase Pro, payment is processed by Stripe. We do not see or store your payment details. Review Stripe's privacy policy at stripe.com/privacy.</p>
       <p>The App may include links to third-party print services and Buy Me a Coffee. Those sites have their own privacy policies.</p>
       <p><strong style="color:#00f0ff;">Cookies</strong></p>

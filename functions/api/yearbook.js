@@ -2,9 +2,13 @@
  * GET  /api/yearbook  — list recent public yearbook entries (newest first)
  * POST /api/yearbook  — opt-in upload of a web-size retro JPEG only
  * OPTIONS             — CORS preflight
+ *
+ * Storage: private R2 bucket retro-yearbook via binding YEARBOOK (or RETRO_YEARBOOK).
+ * Images are served only through this Function, never a public r2.dev URL.
  */
 import {
   MAX_BYTES,
+  bucket,
   corsHeaders,
   json,
   isJpeg,
@@ -28,7 +32,7 @@ export async function onRequestGet(context) {
   const { env, request } = context;
   const headers = corsHeaders(request.headers.get('Origin'));
 
-  if (!env.YEARBOOK) {
+  if (!bucket(env)) {
     return json({ items: [], error: 'Yearbook storage is not configured' }, 503, headers);
   }
 
@@ -37,26 +41,17 @@ export async function onRequestGet(context) {
   const index = await readIndex(env);
   const slice = index.slice(0, limit);
 
-  const items = [];
-  for (const entry of slice) {
+  const items = slice.map((entry) => {
     const id = typeof entry === 'string' ? entry : entry.id;
-    if (!id) continue;
-    let meta = typeof entry === 'object' ? entry : null;
-    if (!meta || !meta.createdAt) {
-      const stored = await env.YEARBOOK.get(`meta:${id}`);
-      if (stored) {
-        try { meta = JSON.parse(stored); } catch { meta = { id }; }
-      } else {
-        meta = { id };
-      }
-    }
-    items.push({
+    if (!id) return null;
+    const meta = typeof entry === 'object' ? entry : { id };
+    return {
       id,
       url: `/api/yearbook/${id}`,
       name: meta.name || '',
       createdAt: meta.createdAt || null,
-    });
-  }
+    };
+  }).filter(Boolean);
 
   return json({ items }, 200, {
     ...headers,
@@ -68,8 +63,10 @@ export async function onRequestPost(context) {
   const { env, request } = context;
   const headers = corsHeaders(request.headers.get('Origin'));
 
-  if (!env.YEARBOOK) {
-    return json({ error: 'Yearbook storage is not configured. Bind YEARBOOK (KV) or enable R2.' }, 503, headers);
+  if (!bucket(env)) {
+    return json({
+      error: 'Yearbook storage is not configured. Bind YEARBOOK (R2) to bucket retro-yearbook.',
+    }, 503, headers);
   }
 
   const rate = await checkRateLimit(env, clientIp(request));

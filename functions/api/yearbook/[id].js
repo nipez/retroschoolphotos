@@ -1,7 +1,8 @@
 /**
- * GET /api/yearbook/:id — public web-size JPEG for an opted-in yearbook entry
+ * GET /api/yearbook/:id — public web-size JPEG for an opted-in yearbook entry.
+ * Served from private R2 via this Function only (no public r2.dev URL).
  */
-import { corsHeaders, getImage, getMeta } from '../../_shared/yearbook.js';
+import { corsHeaders, bucket, getImage } from '../../_shared/yearbook.js';
 
 export async function onRequestOptions(context) {
   return new Response(null, {
@@ -18,7 +19,7 @@ export async function onRequestGet(context) {
   if (!id || id.length < 8) {
     return new Response('Not found', { status: 404, headers });
   }
-  if (!env.YEARBOOK) {
+  if (!bucket(env)) {
     return new Response('Yearbook storage is not configured', { status: 503, headers });
   }
 
@@ -27,14 +28,13 @@ export async function onRequestGet(context) {
     return new Response('Not found', { status: 404, headers });
   }
 
-  const meta = await getMeta(env, id);
   const out = {
     'Content-Type': 'image/jpeg',
     'Cache-Control': 'public, max-age=86400, immutable',
     ...headers,
   };
-  if (meta?.name) {
-    out['X-Yearbook-Name'] = meta.name;
+  if (img.name) {
+    out['X-Yearbook-Name'] = img.name;
   }
 
   return new Response(img.body, { status: 200, headers: out });

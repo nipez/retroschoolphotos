@@ -1,12 +1,17 @@
-/** Shared yearbook helpers for Pages Functions. */
+/** Shared yearbook helpers — R2 only (binding YEARBOOK → bucket retro-yearbook). */
 
 export const MAX_BYTES = Math.floor(1.2 * 1024 * 1024); // ~1.2MB
 export const MAX_INDEX = 200;
 export const RATE_LIMIT = 8; // posts per IP per hour
-export const RATE_WINDOW_SEC = 3600;
+export const RATE_WINDOW_MS = 3600 * 1000;
 export const MAX_NAME_LEN = 40;
 
 const JPEG_MAGIC = [0xff, 0xd8, 0xff];
+const INDEX_KEY = 'index.json';
+
+export function bucket(env) {
+  return env.YEARBOOK || env.RETRO_YEARBOOK || null;
+}
 
 export function corsHeaders(origin) {
   const allow = origin && /^https?:\/\//.test(origin) ? origin : '*';
@@ -38,7 +43,6 @@ export function isJpeg(bytes) {
 export function sanitizeName(raw) {
   if (raw == null) return '';
   const s = String(raw).trim().slice(0, MAX_NAME_LEN);
-  // Strip control chars; keep letters/numbers/spaces/basic punctuation
   return s.replace(/[\u0000-\u001f\u007f]/g, '').replace(/[<>]/g, '');
 }
 
@@ -50,25 +54,54 @@ export function clientIp(request) {
   );
 }
 
+async function hashIp(ip) {
+  const data = new TextEncoder().encode(ip);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  const u8 = new Uint8Array(digest);
+  let hex = '';
+  for (let i = 0; i < 16; i++) hex += u8[i].toString(16).padStart(2, '0');
+  return hex;
+}
+
 export async function checkRateLimit(env, ip) {
-  const kv = env.YEARBOOK;
-  if (!kv) return { ok: false, error: 'Yearbook storage is not configured' };
-  const key = `rate:${ip}`;
-  const raw = await kv.get(key);
-  let count = raw ? parseInt(raw, 10) || 0 : 0;
+  const r2 = bucket(env);
+  if (!r2) return { ok: false, error: 'Yearbook storage is not configured' };
+
+  const key = `rate/${await hashIp(ip)}.json`;
+  const now = Date.now();
+  let count = 0;
+  let resetAt = now + RATE_WINDOW_MS;
+
+  const existing = await r2.get(key);
+  if (existing) {
+    try {
+      const data = JSON.parse(await existing.text());
+      if (data.resetAt && data.resetAt > now) {
+        count = data.count || 0;
+        resetAt = data.resetAt;
+      }
+    } catch {
+      /* start fresh */
+    }
+  }
+
   if (count >= RATE_LIMIT) {
     return { ok: false, error: 'Too many yearbook uploads. Try again later.' };
   }
+
   count += 1;
-  await kv.put(key, String(count), { expirationTtl: RATE_WINDOW_SEC });
+  await r2.put(key, JSON.stringify({ count, resetAt }), {
+    httpMetadata: { contentType: 'application/json' },
+  });
   return { ok: true };
 }
 
 export async function readIndex(env) {
-  const raw = await env.YEARBOOK.get('index');
-  if (!raw) return [];
+  const r2 = bucket(env);
+  const obj = await r2.get(INDEX_KEY);
+  if (!obj) return [];
   try {
-    const parsed = JSON.parse(raw);
+    const parsed = JSON.parse(await obj.text());
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
@@ -76,43 +109,47 @@ export async function readIndex(env) {
 }
 
 export async function writeIndex(env, index) {
-  await env.YEARBOOK.put('index', JSON.stringify(index.slice(0, MAX_INDEX)));
+  const r2 = bucket(env);
+  await r2.put(INDEX_KEY, JSON.stringify(index.slice(0, MAX_INDEX)), {
+    httpMetadata: { contentType: 'application/json' },
+  });
 }
 
-/** Prefer R2 for image bytes when bound; always keep index/meta in KV. */
 export async function putImage(env, id, bytes, meta) {
-  if (env.YEARBOOK_R2) {
-    await env.YEARBOOK_R2.put(`img/${id}.jpg`, bytes, {
-      httpMetadata: { contentType: 'image/jpeg' },
-      customMetadata: { name: meta.name || '', createdAt: meta.createdAt },
-    });
-  } else {
-    await env.YEARBOOK.put(`img:${id}`, bytes, {
-      httpMetadata: { contentType: 'image/jpeg' },
-    });
-  }
-  await env.YEARBOOK.put(`meta:${id}`, JSON.stringify(meta));
+  const r2 = bucket(env);
+  await r2.put(`img/${id}.jpg`, bytes, {
+    httpMetadata: { contentType: 'image/jpeg' },
+    customMetadata: {
+      name: meta.name || '',
+      createdAt: meta.createdAt || '',
+      bytes: String(meta.bytes || bytes.byteLength),
+    },
+  });
 }
 
 export async function getImage(env, id) {
-  if (env.YEARBOOK_R2) {
-    const obj = await env.YEARBOOK_R2.get(`img/${id}.jpg`);
-    if (!obj) return null;
-    return { body: obj.body, size: obj.size };
-  }
-  const val = await env.YEARBOOK.get(`img:${id}`, { type: 'arrayBuffer' });
-  if (!val) return null;
-  return { body: val, size: val.byteLength };
+  const r2 = bucket(env);
+  const obj = await r2.get(`img/${id}.jpg`);
+  if (!obj) return null;
+  return {
+    body: obj.body,
+    size: obj.size,
+    name: (obj.customMetadata && obj.customMetadata.name) || '',
+    createdAt: (obj.customMetadata && obj.customMetadata.createdAt) || null,
+  };
 }
 
 export async function getMeta(env, id) {
-  const raw = await env.YEARBOOK.get(`meta:${id}`);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  const r2 = bucket(env);
+  const obj = await r2.head(`img/${id}.jpg`);
+  if (!obj) return null;
+  const cm = obj.customMetadata || {};
+  return {
+    id,
+    name: cm.name || '',
+    createdAt: cm.createdAt || null,
+    bytes: cm.bytes ? parseInt(cm.bytes, 10) : obj.size,
+  };
 }
 
 export function newId() {
